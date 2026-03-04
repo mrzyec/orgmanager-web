@@ -1,6 +1,10 @@
-// src/lib/authStore.ts
-// Tokenları localStorage'da saklayan mini katman.
-// UI veya API katmanı tokena ihtiyaç duyduğunda buradan okur.
+/**
+ * authStore.ts
+ * -------------
+ * Amaç: Access/Refresh token'ları browser'da saklamak ve okumak.
+ * Şimdilik localStorage kullanıyoruz (kolay).
+ * İleride cookie/secure storage gibi yöntemlere geçebiliriz.
+ */
 
 const ACCESS_KEY = "orgmanager_access";
 const REFRESH_KEY = "orgmanager_refresh";
@@ -10,15 +14,15 @@ export function saveTokens(accessToken: string, refreshToken: string) {
   localStorage.setItem(REFRESH_KEY, refreshToken);
 }
 
-export function clearTokens() {
-  localStorage.removeItem(ACCESS_KEY);
-  localStorage.removeItem(REFRESH_KEY);
-}
-
-export function getAccessToken() {
+export function getAccessToken(): string | null {
   return localStorage.getItem(ACCESS_KEY);
 }
 
-export function getRefreshToken() {
+export function getRefreshToken(): string | null {
   return localStorage.getItem(REFRESH_KEY);
+}
+
+export function clearTokens() {
+  localStorage.removeItem(ACCESS_KEY);
+  localStorage.removeItem(REFRESH_KEY);
 }
