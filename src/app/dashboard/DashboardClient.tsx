@@ -1,0 +1,121 @@
+// src/app/dashboard/DashboardClient.tsx
+
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import OrgsCard from "@/components/OrgsCard";
+import {
+  getAccessToken,
+  getMe,
+  getOrganizations,
+  logout,
+  type MeResponse,
+  type OrganizationDto,
+} from "@/lib/api";
+
+export default function DashboardClient() {
+  const router = useRouter();
+
+  const [me, setMe] = useState<MeResponse | null>(null);
+  const [organizations, setOrganizations] = useState<OrganizationDto[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [logoutLoading, setLogoutLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadData() {
+      try {
+        const token = getAccessToken();
+
+        if (!token) {
+          router.replace("/login");
+          return;
+        }
+
+        const [meData, organizationsData] = await Promise.all([
+          getMe(),
+          getOrganizations(),
+        ]);
+
+        if (!cancelled) {
+          setMe(meData);
+          setOrganizations(organizationsData);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          const message =
+            err instanceof Error ? err.message : "Veriler yüklenemedi.";
+          setError(message);
+          router.replace("/login");
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    loadData();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
+
+  async function handleLogout() {
+    setLogoutLoading(true);
+
+    try {
+      await logout();
+      router.replace("/login");
+    } catch {
+      router.replace("/login");
+    } finally {
+      setLogoutLoading(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 px-4 py-8">
+        <div className="mx-auto max-w-5xl text-sm text-gray-600">
+          Dashboard yükleniyor...
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 px-4 py-8">
+      <div className="mx-auto max-w-5xl space-y-6">
+        <div className="flex flex-col gap-3 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
+            <p className="mt-1 text-sm text-gray-600">
+              Hoş geldin{me?.email ? `, ${me.email}` : ""}.
+            </p>
+          </div>
+
+          <button
+            onClick={handleLogout}
+            disabled={logoutLoading}
+            className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-800 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {logoutLoading ? "Çıkış yapılıyor..." : "Çıkış yap"}
+          </button>
+        </div>
+
+        {error ? (
+          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
+        ) : null}
+
+        <OrgsCard organizations={organizations} />
+      </div>
+    </div>
+  );
+}

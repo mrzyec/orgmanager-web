@@ -1,238 +1,195 @@
 // src/lib/api.ts
-import { getAccessToken, getRefreshToken, saveTokens } from "@/lib/authStore";
 
-/**
- * API base URL:
- * - .env.local içine yazarsan: NEXT_PUBLIC_API_BASE_URL=http://localhost:5131
- * - yazmazsan default: http://localhost:5131
- */
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL?.trim() || "http://localhost:5131";
+export const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5131";
 
-/** Backend DTO'lar */
-export type AuthResponseDto = {
-  accessToken: string;
-  refreshToken: string;
+export type LoginRequest = {
+  email: string;
+  password: string;
 };
 
-export type MeDto = {
-  userId: string;
+export type RegisterRequest = {
   email: string;
-  userName: string;
+  password: string;
+};
+
+export type LoginResponse = {
+  accessToken: string;
+  refreshToken: string;
+  expiresAtUtc?: string;
+};
+
+export type MeResponse = {
+  id: string;
+  email: string;
 };
 
 export type OrganizationDto = {
   id: string;
   name: string;
   description?: string | null;
-  taxNumber: string;
-  city: string;
-  district: string;
-  isActive: boolean;
-  createdAtUtc: string;
+  paymentPeriod?: "Monthly" | "Yearly" | string;
+  createdAtUtc?: string;
 };
 
-export type CreateOrganizationRequest = {
-  name: string;
-  description?: string | null;
-  taxNumber: string;
-  city: string;
-  district: string;
-};
+const ACCESS_TOKEN_KEY = "orgmanager_access_token";
+const REFRESH_TOKEN_KEY = "orgmanager_refresh_token";
 
-export type SetActiveRequest = {
-  isActive: boolean;
-};
+export function getAccessToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(ACCESS_TOKEN_KEY);
+}
 
-async function readBodyAsTextSafe(resp: Response) {
-  try {
-    return await resp.text();
-  } catch {
+export function getRefreshToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(REFRESH_TOKEN_KEY);
+}
+
+export function setTokens(accessToken: string, refreshToken: string) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
+  localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+}
+
+export function clearTokens() {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(ACCESS_TOKEN_KEY);
+  localStorage.removeItem(REFRESH_TOKEN_KEY);
+}
+
+async function parseResponse(response: Response) {
+  if (response.status === 204) {
     return null;
   }
-}
 
-function buildUrl(path: string) {
-  return `${API_BASE}${path}`;
-}
+  const text = await response.text();
 
-/**
- * ✅ 204/boş body durumlarını düzgün handle etmek için:
- * - resp.text() ile body'yi alıyoruz
- * - boşsa JSON parse etmiyoruz
- * - varsa JSON parse ediyoruz
- */
-function tryParseJson<T>(text: string | null): T | undefined {
-  if (!text) return undefined;
-  const trimmed = text.trim();
-  if (!trimmed) return undefined;
+  if (!text || text.trim() === "") {
+    return null;
+  }
+
   try {
-    return JSON.parse(trimmed) as T;
+    return JSON.parse(text);
   } catch {
-    // JSON değilse undefined dönelim (bazı endpointler text dönebilir)
-    return undefined;
+    return text;
   }
 }
 
-/**
- * Core fetch helper:
- * - accessToken varsa Authorization header ekler
- * - 401 gelirse 1 kere refresh dener (refreshManually)
- * - sonra aynı isteği tekrarlar
- */
-async function fetchJson<T>(
+async function request<T>(
   path: string,
-  init?: RequestInit,
-  options?: { auth?: boolean; retryOn401?: boolean }
+  options?: RequestInit,
+  requiresAuth: boolean = false
 ): Promise<T> {
-  const auth = options?.auth ?? true;
-  const retryOn401 = options?.retryOn401 ?? true;
-
-  const headers = new Headers(init?.headers || {});
+  const headers = new Headers(options?.headers ?? {});
   headers.set("Content-Type", "application/json");
 
-  if (auth) {
+  if (requiresAuth) {
     const token = getAccessToken();
-    if (token) headers.set("Authorization", `Bearer ${token}`);
-  }
-
-  const resp = await fetch(buildUrl(path), {
-    ...init,
-    headers,
-  });
-
-  // 401 ise: refresh + retry
-  if (resp.status === 401 && auth && retryOn401) {
-    const rt = getRefreshToken();
-    if (rt) {
-      await refreshManually(); // saveTokens yapar
-      return fetchJson<T>(path, init, { auth: true, retryOn401: false });
+    if (token) {
+      headers.set("Authorization", `Bearer ${token}`);
     }
   }
 
-  // Hata ise body'yi oku ve message'a bas
-  if (!resp.ok) {
-    const bodyText = await readBodyAsTextSafe(resp);
-    throw new Error(
-      `HTTP ${resp.status} ${resp.statusText}${bodyText ? `\n${bodyText}` : ""}`
-    );
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    ...options,
+    headers,
+  });
+
+  const data = await parseResponse(response);
+
+  if (!response.ok) {
+    let message = "Bir hata oluştu.";
+
+    if (typeof data === "string" && data.trim() !== "") {
+      message = data;
+    } else if (data && typeof data === "object") {
+      const obj = data as Record<string, unknown>;
+
+      if (typeof obj.title === "string" && obj.title.trim() !== "") {
+        message = obj.title;
+      } else if (typeof obj.message === "string" && obj.message.trim() !== "") {
+        message = obj.message;
+      } else if (typeof obj.detail === "string" && obj.detail.trim() !== "") {
+        message = obj.detail;
+      }
+    }
+
+    throw new Error(message);
   }
 
-  // ✅ OK: Body boş olabilir (logout gibi)
-  const bodyText = await readBodyAsTextSafe(resp);
-  const parsed = tryParseJson<T>(bodyText);
-
-  // JSON yoksa undefined dön (T = void gibi durumlarda sorun olmaz)
-  return parsed as T;
+  return data as T;
 }
 
-/** ---------------- AUTH ---------------- */
-
-export async function register(
-  email: string,
-  password: string
-): Promise<AuthResponseDto> {
-  return fetchJson<AuthResponseDto>(
-    "/api/auth/register",
-    {
-      method: "POST",
-      body: JSON.stringify({ email, password }),
-    },
-    { auth: false }
-  );
-}
-
-export async function login(
-  email: string,
-  password: string
-): Promise<AuthResponseDto> {
-  return fetchJson<AuthResponseDto>(
+export async function login(requestBody: LoginRequest): Promise<LoginResponse> {
+  const result = await request<LoginResponse>(
     "/api/auth/login",
     {
       method: "POST",
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify(requestBody),
     },
-    { auth: false }
+    false
   );
+
+  if (result?.accessToken && result?.refreshToken) {
+    setTokens(result.accessToken, result.refreshToken);
+  }
+
+  return result;
 }
 
-export async function me(): Promise<MeDto> {
-  return fetchJson<MeDto>("/api/auth/me", { method: "GET" }, { auth: true });
-}
-
-/**
- * logout: backend revoke bekliyor (refreshToken ile)
- * Not: Endpoint 204 dönebilir → fetchJson artık bunu kaldırıyor.
- */
-export async function logout(refreshToken: string): Promise<void> {
-  await fetchJson<void>(
-    "/api/auth/logout",
+export async function register(
+  requestBody: RegisterRequest
+): Promise<LoginResponse | null> {
+  const result = await request<LoginResponse | null>(
+    "/api/auth/register",
     {
       method: "POST",
-      body: JSON.stringify({ refreshToken }),
+      body: JSON.stringify(requestBody),
     },
-    { auth: false }
-  );
-}
-
-export async function refreshManually(): Promise<AuthResponseDto> {
-  const rt = getRefreshToken();
-  if (!rt) throw new Error("Refresh token yok. Login olmalısın.");
-
-  const res = await fetchJson<AuthResponseDto>(
-    "/api/auth/refresh",
-    {
-      method: "POST",
-      body: JSON.stringify({ refreshToken: rt }),
-    },
-    { auth: false }
+    false
   );
 
-  saveTokens(res.accessToken, res.refreshToken);
-  return res;
+  if (result?.accessToken && result?.refreshToken) {
+    setTokens(result.accessToken, result.refreshToken);
+  }
+
+  return result;
 }
 
-/** ---------------- ORGANIZATIONS ---------------- */
+export async function getMe(): Promise<MeResponse> {
+  return request<MeResponse>("/api/auth/me", { method: "GET" }, true);
+}
+
+export async function logout(): Promise<void> {
+  try {
+    await request<null>("/api/auth/logout", { method: "POST" }, true);
+  } finally {
+    clearTokens();
+  }
+}
 
 export async function getOrganizations(): Promise<OrganizationDto[]> {
-  return fetchJson<OrganizationDto[]>(
-    "/api/organizations",
-    { method: "GET" },
-    { auth: true }
-  );
-}
-
-export async function createOrganization(
-  req: CreateOrganizationRequest
-): Promise<OrganizationDto> {
-  return fetchJson<OrganizationDto>(
-    "/api/organizations",
-    {
-      method: "POST",
-      body: JSON.stringify(req),
-    },
-    { auth: true }
-  );
-}
-
-export async function setOrganizationActive(
-  id: string,
-  isActive: boolean
-): Promise<void> {
-  await fetchJson<void>(
-    `/api/organizations/${id}/active`,
-    {
-      method: "PATCH",
-      body: JSON.stringify({ isActive } as SetActiveRequest),
-    },
-    { auth: true }
-  );
+  return request<OrganizationDto[]>("/api/organizations", { method: "GET" }, true);
 }
 
 export async function getOrganizationById(id: string): Promise<OrganizationDto> {
-  return fetchJson<OrganizationDto>(
+  return request<OrganizationDto>(
     `/api/organizations/${id}`,
     { method: "GET" },
-    { auth: true }
+    true
+  );
+}
+
+export async function createOrganization(body: {
+  name: string;
+  description?: string;
+}): Promise<OrganizationDto> {
+  return request<OrganizationDto>(
+    "/api/organizations",
+    {
+      method: "POST",
+      body: JSON.stringify(body),
+    },
+    true
   );
 }
