@@ -1,15 +1,12 @@
-
 "use client";
 
-import { useEffect, useState } from "react";
+import Link from "next/link";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { register } from "@/lib/api";
-import { getAccessToken, saveTokens } from "@/lib/authStore";
+import AuthCard from "@/components/AuthCard";
+import PasswordInput from "@/components/PasswordInput";
+import { getAccessToken, getMe, register } from "@/lib/api";
 
-/**
- * Register sayfası CLIENT COMPONENT.
- * Register başarılı olursa token döner → saveTokens → dashboard.
- */
 function makeRandomEmail() {
   const rnd = Math.random().toString(16).slice(2, 10);
   return `ui_${rnd}@orgmanager.local`;
@@ -18,88 +15,166 @@ function makeRandomEmail() {
 export default function RegisterPage() {
   const router = useRouter();
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("a12345");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
 
-  // token varsa register’a gerek yok
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+  const [error, setError] = useState("");
+
   useEffect(() => {
-    const a = getAccessToken();
-    if (a) {
-      router.replace("/dashboard");
-      return;
+    let cancelled = false;
+
+    async function checkExistingSession() {
+      try {
+        const token = getAccessToken();
+
+        if (!token) {
+          if (!cancelled) {
+            setCheckingAuth(false);
+          }
+          return;
+        }
+
+        await getMe();
+
+        if (!cancelled) {
+          router.replace("/dashboard");
+          return;
+        }
+      } catch {
+        if (!cancelled) {
+          setCheckingAuth(false);
+        }
+      }
     }
-    setEmail(makeRandomEmail());
+
+    checkExistingSession();
+
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
 
-  async function onRegister() {
+  function fillRandomEmail() {
+    if (!emailRef.current) return;
+    emailRef.current.value = makeRandomEmail();
+    emailRef.current.focus();
+  }
+
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+
+    if (loading) return;
+
+    const email = emailRef.current?.value?.trim() ?? "";
+    const password = passwordRef.current?.value ?? "";
+
+    setError("");
+    setLoading(true);
+
     try {
-      setError(null);
-      setLoading(true);
+      const result = await register({
+        email,
+        password,
+      });
 
-      const r = await register(email, password);
+      if (result?.accessToken) {
+        router.replace("/dashboard");
+        return;
+      }
 
-      saveTokens(r.accessToken, r.refreshToken);
-      router.push("/dashboard");
-    } catch (e: any) {
-      setError(e?.message ?? "Register failed");
+      router.replace("/login");
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Kayıt sırasında bir hata oluştu.";
+      setError(message);
     } finally {
       setLoading(false);
     }
   }
 
-  return (
-    <main className="min-h-screen p-6">
-      <div className="mx-auto max-w-md space-y-4 rounded-xl border p-5">
-        <h1 className="text-2xl font-semibold">Register</h1>
-
-        <label className="block space-y-1">
-          <div className="text-sm text-gray-600">Email</div>
-          <input
-            className="w-full rounded-md border px-3 py-2"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="ui_xxxx@orgmanager.local"
-          />
-          <div className="text-xs text-gray-500">
-            İpucu: 409 yememek için başlangıçta random email geliyor.
-          </div>
-        </label>
-
-        <label className="block space-y-1">
-          <div className="text-sm text-gray-600">Password</div>
-          <input
-            className="w-full rounded-md border px-3 py-2"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="a12345"
-          />
-        </label>
-
-        <button
-          className="w-full rounded-md border px-3 py-2 hover:bg-gray-50 disabled:opacity-50"
-          onClick={onRegister}
-          disabled={loading}
-        >
-          {loading ? "Registering..." : "Register"}
-        </button>
-
-        <div className="text-sm">
-          Zaten hesabın var mı?{" "}
-          <a className="underline" href="/login">
-            Login
-          </a>
-        </div>
-
-        {error && (
-          <div className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700">
-            <div className="font-medium">Hata</div>
-            <pre className="mt-2 overflow-auto">{error}</pre>
-          </div>
-        )}
+  if (checkingAuth) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
+        <AuthCard title="Kayıt kontrolü" subtitle="Oturum doğrulanıyor...">
+          <div className="text-sm text-gray-600">Lütfen bekleyin.</div>
+        </AuthCard>
       </div>
-    </main>
+    );
+  }
+
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
+      <AuthCard
+        title="OrgManager Kayıt"
+        subtitle="Yeni hesap oluştur ve organizasyonlarını yönetmeye başla."
+      >
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label
+              htmlFor="email"
+              className="mb-1 block text-sm font-medium text-gray-700"
+            >
+              E-posta
+            </label>
+
+            <input
+              ref={emailRef}
+              id="email"
+              name="email"
+              type="email"
+              autoComplete="email"
+              placeholder="ornek@mail.com"
+              className="w-full rounded-xl border border-gray-300 px-3 py-2 text-gray-900 outline-none transition focus:border-gray-500"
+            />
+
+            <div className="mt-2 flex items-center justify-between gap-3">
+              <div className="text-xs text-gray-500">
+                İstersen test için random email üretebilirsin.
+              </div>
+
+              <button
+                type="button"
+                onClick={fillRandomEmail}
+                className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50"
+              >
+                Random üret
+              </button>
+            </div>
+          </div>
+
+          <PasswordInput
+            ref={passwordRef}
+            id="password"
+            name="password"
+            showPassword={showPassword}
+            onToggleShowPassword={() => setShowPassword((prev) => !prev)}
+          />
+
+          {error ? (
+            <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {error}
+            </div>
+          ) : null}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full rounded-xl bg-black px-4 py-2 text-sm font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {loading ? "Kayıt oluşturuluyor..." : "Kayıt ol"}
+          </button>
+
+          <div className="text-center text-sm text-gray-600">
+            Zaten hesabın var mı?{" "}
+            <Link href="/login" className="font-medium text-black underline">
+              Giriş yap
+            </Link>
+          </div>
+        </form>
+      </AuthCard>
+    </div>
   );
 }

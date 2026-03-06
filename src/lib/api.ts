@@ -16,20 +16,34 @@ export type RegisterRequest = {
 export type LoginResponse = {
   accessToken: string;
   refreshToken: string;
-  expiresAtUtc?: string;
+  accessExpiresAtUtc?: string;
+  refreshExpiresAtUtc?: string;
 };
 
 export type MeResponse = {
-  id: string;
+  userId: string;
   email: string;
+  userName?: string | null;
 };
 
 export type OrganizationDto = {
   id: string;
   name: string;
   description?: string | null;
-  paymentPeriod?: "Monthly" | "Yearly" | string;
-  createdAtUtc?: string;
+  taxNumber?: string | null;
+  city?: string | null;
+  district?: string | null;
+  isActive?: boolean;
+  paymentPeriod?: "Monthly" | "Yearly" | string | null;
+  createdAtUtc?: string | null;
+};
+
+export type CreateOrganizationRequest = {
+  name: string;
+  description?: string;
+  taxNumber?: string;
+  city?: string;
+  district?: string;
 };
 
 const ACCESS_TOKEN_KEY = "orgmanager_access_token";
@@ -105,7 +119,9 @@ async function request<T>(
     } else if (data && typeof data === "object") {
       const obj = data as Record<string, unknown>;
 
-      if (typeof obj.title === "string" && obj.title.trim() !== "") {
+      if (typeof obj.error === "string" && obj.error.trim() !== "") {
+        message = obj.error;
+      } else if (typeof obj.title === "string" && obj.title.trim() !== "") {
         message = obj.title;
       } else if (typeof obj.message === "string" && obj.message.trim() !== "") {
         message = obj.message;
@@ -161,8 +177,19 @@ export async function getMe(): Promise<MeResponse> {
 }
 
 export async function logout(): Promise<void> {
+  const refreshToken = getRefreshToken();
+
   try {
-    await request<null>("/api/auth/logout", { method: "POST" }, true);
+    await request<null>(
+      "/api/auth/logout",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          refreshToken: refreshToken ?? "",
+        }),
+      },
+      false
+    );
   } finally {
     clearTokens();
   }
@@ -180,10 +207,9 @@ export async function getOrganizationById(id: string): Promise<OrganizationDto> 
   );
 }
 
-export async function createOrganization(body: {
-  name: string;
-  description?: string;
-}): Promise<OrganizationDto> {
+export async function createOrganization(
+  body: CreateOrganizationRequest
+): Promise<OrganizationDto> {
   return request<OrganizationDto>(
     "/api/organizations",
     {

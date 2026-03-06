@@ -2,6 +2,7 @@
 
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import OrgsCard from "@/components/OrgsCard";
@@ -99,13 +100,22 @@ export default function DashboardClient() {
             </p>
           </div>
 
-          <button
-            onClick={handleLogout}
-            disabled={logoutLoading}
-            className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-800 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {logoutLoading ? "Çıkış yapılıyor..." : "Çıkış yap"}
-          </button>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Link
+              href="/organizations/new"
+              className="rounded-xl bg-black px-4 py-2 text-center text-sm font-medium text-white transition hover:opacity-90"
+            >
+              Yeni organizasyon
+            </Link>
+
+            <button
+              onClick={handleLogout}
+              disabled={logoutLoading}
+              className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-800 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {logoutLoading ? "Çıkış yapılıyor..." : "Çıkış yap"}
+            </button>
+          </div>
         </div>
 
         {error ? (

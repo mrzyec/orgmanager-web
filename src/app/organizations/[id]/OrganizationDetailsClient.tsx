@@ -4,12 +4,32 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getOrganizationById, type OrganizationDto } from "@/lib/api";
 
-/**
- * Organization Details:
- * - URL'den gelen id ile backend'e gider
- * - GET /api/organizations/{id}
- * - Inputlara gerçek veriyi basar (readOnly)
- */
+type ReadonlyFieldProps = {
+  label: string;
+  value: string;
+  className?: string;
+  mono?: boolean;
+};
+
+function ReadonlyField({
+  label,
+  value,
+  className = "",
+  mono = false,
+}: ReadonlyFieldProps) {
+  return (
+    <label className={`space-y-1 ${className}`}>
+      <div className="text-sm text-gray-600">{label}</div>
+      <input
+        className={`w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-gray-900 outline-none read-only:bg-white read-only:text-gray-900 ${
+          mono ? "font-mono" : ""
+        }`}
+        value={value}
+        readOnly
+      />
+    </label>
+  );
+}
 
 export default function OrganizationDetailsClient({ id }: { id: string }) {
   const [org, setOrg] = useState<OrganizationDto | null>(null);
@@ -24,7 +44,7 @@ export default function OrganizationDetailsClient({ id }: { id: string }) {
 
         if (!id) {
           setOrg(null);
-          setError("Organization id bulunamadı (route param).");
+          setError("Organization id bulunamadı.");
           return;
         }
 
@@ -42,100 +62,67 @@ export default function OrganizationDetailsClient({ id }: { id: string }) {
   }, [id]);
 
   return (
-    <main className="min-h-screen p-6">
-      <div className="mx-auto max-w-3xl space-y-4">
+    <main className="min-h-screen bg-gray-50 px-4 py-8">
+      <div className="mx-auto max-w-3xl space-y-6">
         <div className="flex items-center justify-between gap-3">
-          <h1 className="text-2xl font-semibold">Organization Details</h1>
+          <div>
+            <h1 className="text-2xl font-semibold text-gray-900">
+              Organizasyon detayları
+            </h1>
+            <p className="mt-1 text-sm text-gray-600">
+              Organizasyona ait bilgileri görüntülüyorsun.
+            </p>
+          </div>
 
           <Link
             href="/dashboard"
-            className="rounded-md border px-3 py-2 hover:bg-gray-50"
+            className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-800 transition hover:bg-gray-50"
           >
-            Back
+            Geri dön
           </Link>
         </div>
 
-        <section className="rounded-xl border p-4 space-y-4">
-          <div className="text-sm text-gray-600">{loading ? "Yükleniyor..." : " "}</div>
+        <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+          {loading ? (
+            <div className="mb-4 text-sm text-gray-600">Yükleniyor...</div>
+          ) : null}
 
-          {error && (
-            <div className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700">
+          {error ? (
+            <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
               {error}
             </div>
-          )}
+          ) : null}
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="space-y-1 sm:col-span-2">
-              <div className="text-sm text-gray-600">Organization Id</div>
-              <input
-                className="w-full rounded-md border px-3 py-2 font-mono"
-                value={id}
-                readOnly
-              />
-            </label>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <ReadonlyField
+              label="Organization Id"
+              value={id ?? ""}
+              className="sm:col-span-2"
+              mono
+            />
 
-            <label className="space-y-1">
-              <div className="text-sm text-gray-600">Name</div>
-              <input
-                className="w-full rounded-md border px-3 py-2"
-                value={org?.name ?? ""}
-                readOnly
-              />
-            </label>
+            <ReadonlyField label="Name" value={org?.name ?? ""} />
+            <ReadonlyField label="Tax Number" value={org?.taxNumber ?? ""} />
 
-            <label className="space-y-1">
-              <div className="text-sm text-gray-600">Tax Number</div>
-              <input
-                className="w-full rounded-md border px-3 py-2"
-                value={org?.taxNumber ?? ""}
-                readOnly
-              />
-            </label>
+            <ReadonlyField label="City" value={org?.city ?? ""} />
+            <ReadonlyField label="District" value={org?.district ?? ""} />
 
-            <label className="space-y-1">
-              <div className="text-sm text-gray-600">City</div>
-              <input
-                className="w-full rounded-md border px-3 py-2"
-                value={org?.city ?? ""}
-                readOnly
-              />
-            </label>
+            <ReadonlyField
+              label="Description"
+              value={org?.description ?? ""}
+              className="sm:col-span-2"
+            />
 
-            <label className="space-y-1">
-              <div className="text-sm text-gray-600">District</div>
-              <input
-                className="w-full rounded-md border px-3 py-2"
-                value={org?.district ?? ""}
-                readOnly
-              />
-            </label>
+            <ReadonlyField
+              label="Is Active"
+              value={org ? String(org.isActive ?? "") : ""}
+            />
 
-            <label className="space-y-1 sm:col-span-2">
-              <div className="text-sm text-gray-600">Description</div>
-              <input
-                className="w-full rounded-md border px-3 py-2"
-                value={org?.description ?? ""}
-                readOnly
-              />
-            </label>
-
-            <label className="space-y-1">
-              <div className="text-sm text-gray-600">Is Active</div>
-              <input
-                className="w-full rounded-md border px-3 py-2"
-                value={org ? String(org.isActive) : ""}
-                readOnly
-              />
-            </label>
-
-            <label className="space-y-1">
-              <div className="text-sm text-gray-600">Created At (UTC)</div>
-              <input
-                className="w-full rounded-md border px-3 py-2 font-mono"
-                value={org?.createdAtUtc ?? ""}
-                readOnly
-              />
-            </label>
+            <ReadonlyField
+              label="Created At (UTC)"
+              value={org?.createdAtUtc ?? ""}
+              mono
+            />
           </div>
         </section>
       </div>

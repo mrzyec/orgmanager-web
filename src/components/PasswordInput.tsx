@@ -6,12 +6,13 @@ type PasswordInputProps = {
   id?: string;
   name?: string;
   label?: string;
-  value: string;
-  onChange: (value: string) => void;
   placeholder?: string;
   autoComplete?: string;
   showPassword: boolean;
   onToggleShowPassword: () => void;
+
+  value?: string;
+  onChange?: (value: string) => void;
 };
 
 const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
@@ -20,15 +21,17 @@ const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
       id = "password",
       name = "password",
       label = "Şifre",
-      value,
-      onChange,
       placeholder = "••••••••",
       autoComplete = "current-password",
       showPassword,
       onToggleShowPassword,
+      value,
+      onChange,
     },
     ref
   ) {
+    const isControlled = typeof value === "string";
+
     return (
       <div>
         <label
@@ -45,10 +48,14 @@ const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
             name={name}
             type={showPassword ? "text" : "password"}
             autoComplete={autoComplete}
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
             placeholder={placeholder}
             className="w-full rounded-xl border border-gray-300 px-3 py-2 pr-24 text-gray-900 outline-none transition focus:border-gray-500"
+            {...(isControlled ? { value } : {})}
+            onChange={(e) => {
+              if (onChange) {
+                onChange(e.target.value);
+              }
+            }}
           />
 
           <button
