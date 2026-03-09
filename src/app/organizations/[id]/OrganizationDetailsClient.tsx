@@ -16,6 +16,7 @@ import {
   ReviewedRequestsSection,
 } from "@/components/organization-requests-section";
 import { OrganizationMembersSection } from "@/components/organization-members-section";
+import OrganizationPaymentsSection from "@/components/organization-payments-section";
 import {
   addOrganizationMember,
   deleteOrganizationMember,
@@ -150,6 +151,7 @@ export default function OrganizationDetailsClient({ id }: { id: string }) {
   const isMember = currentMembership?.role === "Member";
 
   const canManageOrganization = isOwner || isSuperAdmin;
+  const canManagePayments = isOwner || isSuperAdmin;
 
   const pendingJoinRequests = useMemo(
     () => joinRequests.filter((x) => x.status === "Pending"),
@@ -168,10 +170,10 @@ export default function OrganizationDetailsClient({ id }: { id: string }) {
 
   const heroSubtitle = useMemo(() => {
     if (canManageOrganization) {
-      return "Organizasyon ayarlarını, üyeleri ve katılım taleplerini bu ekrandan yönetebilirsin.";
+      return "Organizasyon ayarlarını, üyeleri, ödemeleri ve katılım taleplerini bu ekrandan yönetebilirsin.";
     }
 
-    return "Bu ekranda organizasyona ait temel bilgileri ve üyeleri görüntüleyebilirsin.";
+    return "Bu ekranda organizasyona ait temel bilgileri, üyeleri ve ödeme durumlarını görüntüleyebilirsin.";
   }, [canManageOrganization]);
 
   const managementSummaryTitle = useMemo(() => {
@@ -185,7 +187,7 @@ export default function OrganizationDetailsClient({ id }: { id: string }) {
 
   const managementSummaryDescription = useMemo(() => {
     if (isSuperAdmin && isOwner) {
-      return "Organizasyonun tüm yönetim işlemlerini gerçekleştirebilir, üye ve başvuru süreçlerini tam yetkiyle kontrol edebilirsin.";
+      return "Organizasyonun tüm yönetim işlemlerini gerçekleştirebilir, üye, ödeme ve başvuru süreçlerini tam yetkiyle kontrol edebilirsin.";
     }
 
     if (isSuperAdmin) {
@@ -193,7 +195,7 @@ export default function OrganizationDetailsClient({ id }: { id: string }) {
     }
 
     if (isOwner) {
-      return "Owner olarak organizasyonun aktiflik durumunu, katılım kodunu, üyeleri ve başvuru akışını yönetebilirsin.";
+      return "Owner olarak organizasyonun aktiflik durumunu, katılım kodunu, aidat ayarlarını, üyeleri ve başvuru akışını yönetebilirsin.";
     }
 
     if (isAssistant) {
@@ -201,7 +203,7 @@ export default function OrganizationDetailsClient({ id }: { id: string }) {
     }
 
     if (isMember) {
-      return "Member rolüyle organizasyona dahilsin. Bu ekranda temel bilgileri ve mevcut üyeleri takip edebilirsin.";
+      return "Member rolüyle organizasyona dahilsin. Bu ekranda temel bilgileri, üyeleri ve ödeme durumlarını takip edebilirsin.";
     }
 
     return "Bu sayfa organizasyonun mevcut durumunu ve yapısını takip etmen için hazırlanmıştır.";
@@ -270,7 +272,10 @@ export default function OrganizationDetailsClient({ id }: { id: string }) {
 
     try {
       await reviewOrganizationJoinRequest(requestId, approve);
-      await Promise.all([loadJoinRequests({ silent: true }), loadMembers({ silent: true })]);
+      await Promise.all([
+        loadJoinRequests({ silent: true }),
+        loadMembers({ silent: true }),
+      ]);
 
       showToast({
         message: approve ? "Katılım talebi onaylandı." : "Katılım talebi reddedildi.",
@@ -307,7 +312,10 @@ export default function OrganizationDetailsClient({ id }: { id: string }) {
       setMemberEmail("");
       setMemberRole("Member");
 
-      showToast({ message: "Üye başarıyla organizasyona eklendi.", type: "success" });
+      showToast({
+        message: "Üye başarıyla organizasyona eklendi.",
+        type: "success",
+      });
       await loadMembers({ silent: true });
     } catch (e: any) {
       showToast({ message: e?.message ?? "Üye eklenemedi.", type: "error" });
@@ -367,7 +375,10 @@ export default function OrganizationDetailsClient({ id }: { id: string }) {
         type: "success",
       });
     } catch (e: any) {
-      showToast({ message: e?.message ?? "Üye durumu güncellenemedi.", type: "error" });
+      showToast({
+        message: e?.message ?? "Üye durumu güncellenemedi.",
+        type: "error",
+      });
     } finally {
       setActionLoading(false);
     }
@@ -408,10 +419,16 @@ export default function OrganizationDetailsClient({ id }: { id: string }) {
 
     try {
       await transferOrganizationOwnership(id, member.userId);
-      showToast({ message: "Owner transfer başarıyla tamamlandı.", type: "success" });
+      showToast({
+        message: "Owner transfer başarıyla tamamlandı.",
+        type: "success",
+      });
       await refreshAll({ silent: true });
     } catch (e: any) {
-      showToast({ message: e?.message ?? "Owner transfer başarısız oldu.", type: "error" });
+      showToast({
+        message: e?.message ?? "Owner transfer başarısız oldu.",
+        type: "error",
+      });
     } finally {
       setActionLoading(false);
     }
@@ -500,6 +517,11 @@ export default function OrganizationDetailsClient({ id }: { id: string }) {
           <ReadonlyField label="Oluşturulma tarihi" value={formatUtcDate(org?.createdAtUtc)} mono />
         </div>
       </AppCard>
+
+      <OrganizationPaymentsSection
+        organizationId={id}
+        canManagePayments={canManagePayments}
+      />
 
       {canManageOrganization ? (
         <PendingRequestsSection
