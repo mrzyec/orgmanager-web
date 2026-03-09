@@ -69,9 +69,9 @@ function MemberRoleBadge({ role }: { role: string }) {
 
   return (
     <span className="rounded-full border border-gray-200 bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700">
-      Member
-    </span>
-  );
+        Member
+      </span>
+    );
 }
 
 function JoinRequestStatusBadge({ status }: { status: string }) {
@@ -117,6 +117,9 @@ function UserInitialAvatar({ email }: { email: string }) {
     </div>
   );
 }
+
+const buttonBase =
+  "transition disabled:cursor-not-allowed disabled:opacity-60 active:scale-[0.98] active:translate-y-[1px]";
 
 export default function OrganizationDetailsClient({ id }: { id: string }) {
   const { showToast } = useToast();
@@ -233,6 +236,11 @@ export default function OrganizationDetailsClient({ id }: { id: string }) {
 
   const pendingJoinRequests = useMemo(
     () => joinRequests.filter((x) => x.status === "Pending"),
+    [joinRequests]
+  );
+
+  const reviewedJoinRequests = useMemo(
+    () => joinRequests.filter((x) => x.status !== "Pending"),
     [joinRequests]
   );
 
@@ -516,7 +524,7 @@ export default function OrganizationDetailsClient({ id }: { id: string }) {
 
           <Link
             href="/dashboard"
-            className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-800 transition hover:bg-gray-50"
+            className={`rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50 hover:shadow-sm ${buttonBase}`}
           >
             Geri dön
           </Link>
@@ -550,7 +558,7 @@ export default function OrganizationDetailsClient({ id }: { id: string }) {
                 type="button"
                 onClick={handleToggleActive}
                 disabled={actionLoading || !org}
-                className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-800 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                className={`rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-800 hover:bg-gray-100 hover:shadow-sm ${buttonBase}`}
               >
                 {actionLoading
                   ? "Güncelleniyor..."
@@ -599,7 +607,7 @@ export default function OrganizationDetailsClient({ id }: { id: string }) {
                   <button
                     type="button"
                     onClick={handleCopyJoinCode}
-                    className="rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-800 transition hover:bg-gray-50"
+                    className={`rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-800 hover:bg-gray-50 hover:shadow-sm ${buttonBase}`}
                   >
                     Kopyala
                   </button>
@@ -609,7 +617,7 @@ export default function OrganizationDetailsClient({ id }: { id: string }) {
                       type="button"
                       onClick={handleRegenerateJoinCode}
                       disabled={actionLoading}
-                      className="rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-800 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                      className={`rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-800 hover:bg-gray-50 hover:shadow-sm ${buttonBase}`}
                     >
                       Kodu yenile
                     </button>
@@ -683,7 +691,7 @@ export default function OrganizationDetailsClient({ id }: { id: string }) {
                           type="button"
                           onClick={() => handleReviewJoinRequest(request.id, true)}
                           disabled={actionLoading}
-                          className="rounded-lg border border-green-300 bg-green-50 px-3 py-2 text-xs font-medium text-green-700 transition hover:bg-green-100 disabled:cursor-not-allowed disabled:opacity-60"
+                          className={`rounded-lg border border-green-300 bg-green-50 px-3 py-2 text-xs font-medium text-green-700 hover:bg-green-100 hover:shadow-sm ${buttonBase}`}
                         >
                           Onayla
                         </button>
@@ -692,10 +700,74 @@ export default function OrganizationDetailsClient({ id }: { id: string }) {
                           type="button"
                           onClick={() => handleReviewJoinRequest(request.id, false)}
                           disabled={actionLoading}
-                          className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs font-medium text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                          className={`rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs font-medium text-red-700 hover:bg-red-100 hover:shadow-sm ${buttonBase}`}
                         >
                           Reddet
                         </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        ) : null}
+
+        {canManageOrganization ? (
+          <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">
+                  Başvuru geçmişi
+                </h2>
+                <p className="mt-1 text-sm text-gray-600">
+                  Sonuçlanmış başvuruları burada görebilirsin.
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-2 text-sm font-medium text-gray-800">
+                Toplam: {reviewedJoinRequests.length}
+              </div>
+            </div>
+
+            {joinRequestsLoading ? (
+              <div className="text-sm text-gray-600">Geçmiş yükleniyor...</div>
+            ) : reviewedJoinRequests.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-gray-300 p-4 text-sm text-gray-600">
+                Sonuçlanmış başvuru bulunmuyor.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {reviewedJoinRequests.map((request) => (
+                  <div
+                    key={request.id}
+                    className="rounded-2xl border border-gray-200 p-4"
+                  >
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                      <div className="flex items-start gap-3">
+                        <UserInitialAvatar email={request.userEmail} />
+
+                        <div>
+                          <div className="text-sm font-semibold text-gray-900">
+                            {request.userEmail}
+                          </div>
+
+                          <div className="mt-1 flex flex-wrap items-center gap-2">
+                            <JoinRequestStatusBadge status={request.status} />
+                            <span className="text-xs text-gray-500">
+                              Başvuru: {request.createdAtUtc}
+                            </span>
+                            {request.reviewedAtUtc ? (
+                              <span className="text-xs text-gray-500">
+                                Sonuç: {request.reviewedAtUtc}
+                              </span>
+                            ) : null}
+                          </div>
+
+                          <div className="mt-2 text-xs text-gray-500">
+                            UserId: {request.userId}
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -738,7 +810,7 @@ export default function OrganizationDetailsClient({ id }: { id: string }) {
               <button
                 type="submit"
                 disabled={actionLoading}
-                className="rounded-xl bg-black px-4 py-2 text-sm font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                className={`rounded-xl bg-black px-4 py-2 text-sm font-medium text-white hover:opacity-90 hover:shadow-sm ${buttonBase}`}
               >
                 {actionLoading ? "Ekleniyor..." : "Üye ekle"}
               </button>
@@ -785,7 +857,7 @@ export default function OrganizationDetailsClient({ id }: { id: string }) {
                               type="button"
                               onClick={() => handleToggleRole(member)}
                               disabled={actionLoading}
-                              className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-800 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                              className={`rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-800 hover:bg-gray-50 hover:shadow-sm ${buttonBase}`}
                             >
                               {member.role === "Assistant"
                                 ? "Member yap"
@@ -796,7 +868,7 @@ export default function OrganizationDetailsClient({ id }: { id: string }) {
                               type="button"
                               onClick={() => handleToggleMemberActive(member)}
                               disabled={actionLoading}
-                              className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-800 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                              className={`rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-800 hover:bg-gray-50 hover:shadow-sm ${buttonBase}`}
                             >
                               {member.isActive ? "Pasif et" : "Aktif et"}
                             </button>
@@ -805,7 +877,7 @@ export default function OrganizationDetailsClient({ id }: { id: string }) {
                               type="button"
                               onClick={() => handleTransferOwnership(member)}
                               disabled={actionLoading}
-                              className="rounded-lg border border-yellow-300 bg-yellow-50 px-3 py-1.5 text-xs font-medium text-yellow-700 transition hover:bg-yellow-100 disabled:cursor-not-allowed disabled:opacity-60"
+                              className={`rounded-lg border border-yellow-300 bg-yellow-50 px-3 py-1.5 text-xs font-medium text-yellow-700 hover:bg-yellow-100 hover:shadow-sm ${buttonBase}`}
                             >
                               Owner yap
                             </button>
@@ -814,7 +886,7 @@ export default function OrganizationDetailsClient({ id }: { id: string }) {
                               type="button"
                               onClick={() => handleDeleteMember(member)}
                               disabled={actionLoading}
-                              className="rounded-lg border border-red-300 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                              className={`rounded-lg border border-red-300 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100 hover:shadow-sm ${buttonBase}`}
                             >
                               Çıkar
                             </button>
