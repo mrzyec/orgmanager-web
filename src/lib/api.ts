@@ -1,5 +1,3 @@
-// src/lib/api.ts
-
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5131";
 
@@ -33,9 +31,30 @@ export type OrganizationDto = {
   taxNumber?: string | null;
   city?: string | null;
   district?: string | null;
+  ownerUserId?: string | null;
   isActive?: boolean;
   paymentPeriod?: "Monthly" | "Yearly" | string | null;
   createdAtUtc?: string | null;
+};
+
+export type OrganizationMemberDto = {
+  id: string;
+  organizationId: string;
+  userId: string;
+  email: string;
+  role: string;
+  isActive: boolean;
+  createdAtUtc: string;
+};
+
+export type AddOrganizationMemberRequest = {
+  email: string;
+  role: "Member" | "Assistant";
+};
+
+export type UpdateOrganizationMemberRequest = {
+  role: "Member" | "Assistant";
+  isActive: boolean;
 };
 
 export type CreateOrganizationRequest = {
@@ -215,6 +234,72 @@ export async function createOrganization(
     {
       method: "POST",
       body: JSON.stringify(body),
+    },
+    true
+  );
+}
+
+export async function setOrganizationActive(
+  id: string,
+  isActive: boolean
+): Promise<void> {
+  await request<null>(
+    `/api/organizations/${id}/active`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ isActive }),
+    },
+    true
+  );
+}
+
+export async function getOrganizationMembers(
+  organizationId: string
+): Promise<OrganizationMemberDto[]> {
+  return request<OrganizationMemberDto[]>(
+    `/api/organizations/${organizationId}/members`,
+    { method: "GET" },
+    true
+  );
+}
+
+export async function addOrganizationMember(
+  organizationId: string,
+  body: AddOrganizationMemberRequest
+): Promise<OrganizationMemberDto> {
+  return request<OrganizationMemberDto>(
+    `/api/organizations/${organizationId}/members`,
+    {
+      method: "POST",
+      body: JSON.stringify(body),
+    },
+    true
+  );
+}
+
+export async function updateOrganizationMember(
+  organizationId: string,
+  memberId: string,
+  body: UpdateOrganizationMemberRequest
+): Promise<OrganizationMemberDto> {
+  return request<OrganizationMemberDto>(
+    `/api/organizations/${organizationId}/members/${memberId}`,
+    {
+      method: "PUT",
+      body: JSON.stringify(body),
+    },
+    true
+  );
+}
+
+export async function deleteOrganizationMember(
+  organizationId: string,
+  memberId: string
+): Promise<void> {
+  await request<null>(
+    `/api/organizations/${organizationId}/members/${memberId}`,
+    {
+      method: "DELETE",
     },
     true
   );

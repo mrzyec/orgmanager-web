@@ -1,9 +1,7 @@
-// src/app/dashboard/DashboardClient.tsx
-
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import OrgsCard from "@/components/OrgsCard";
 import {
@@ -79,6 +77,16 @@ export default function DashboardClient() {
     }
   }
 
+  const activeCount = useMemo(
+    () => organizations.filter((x) => x.isActive).length,
+    [organizations]
+  );
+
+  const passiveCount = useMemo(
+    () => organizations.filter((x) => !x.isActive).length,
+    [organizations]
+  );
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 px-4 py-8">
@@ -92,29 +100,54 @@ export default function DashboardClient() {
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-8">
       <div className="mx-auto max-w-5xl space-y-6">
-        <div className="flex flex-col gap-3 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
-            <p className="mt-1 text-sm text-gray-600">
-              Hoş geldin{me?.email ? `, ${me.email}` : ""}.
-            </p>
+        <div className="flex flex-col gap-4 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
+              <p className="mt-1 text-sm text-gray-600">
+                Hoş geldin{me?.email ? `, ${me.email}` : ""}.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Link
+                href="/organizations/new"
+                className="rounded-xl bg-black px-4 py-2 text-center text-sm font-medium text-white transition hover:opacity-90"
+              >
+                Yeni organizasyon
+              </Link>
+
+              <button
+                onClick={handleLogout}
+                disabled={logoutLoading}
+                className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-800 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {logoutLoading ? "Çıkış yapılıyor..." : "Çıkış yap"}
+              </button>
+            </div>
           </div>
 
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Link
-              href="/organizations/new"
-              className="rounded-xl bg-black px-4 py-2 text-center text-sm font-medium text-white transition hover:opacity-90"
-            >
-              Yeni organizasyon
-            </Link>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+              <div className="text-sm text-gray-600">Toplam organizasyon</div>
+              <div className="mt-1 text-2xl font-semibold text-gray-900">
+                {organizations.length}
+              </div>
+            </div>
 
-            <button
-              onClick={handleLogout}
-              disabled={logoutLoading}
-              className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-800 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {logoutLoading ? "Çıkış yapılıyor..." : "Çıkış yap"}
-            </button>
+            <div className="rounded-xl border border-green-200 bg-green-50 p-4">
+              <div className="text-sm text-green-700">Aktif</div>
+              <div className="mt-1 text-2xl font-semibold text-green-800">
+                {activeCount}
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-gray-200 bg-gray-100 p-4">
+              <div className="text-sm text-gray-700">Pasif</div>
+              <div className="mt-1 text-2xl font-semibold text-gray-800">
+                {passiveCount}
+              </div>
+            </div>
           </div>
         </div>
 
