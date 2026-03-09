@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { useToast } from "@/components/ToastProvider";
 import {
   addOrganizationMember,
   deleteOrganizationMember,
@@ -9,6 +10,7 @@ import {
   getOrganizationById,
   getOrganizationMembers,
   setOrganizationActive,
+  transferOrganizationOwnership,
   updateOrganizationMember,
   type MeResponse,
   type OrganizationDto,
@@ -69,27 +71,33 @@ function MemberRoleBadge({ role }: { role: string }) {
 }
 
 export default function OrganizationDetailsClient({ id }: { id: string }) {
+  const { showToast } = useToast();
+
   const [org, setOrg] = useState<OrganizationDto | null>(null);
   const [me, setMe] = useState<MeResponse | null>(null);
   const [members, setMembers] = useState<OrganizationMemberDto[]>([]);
 
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [membersLoading, setMembersLoading] = useState(false);
 
   const [memberEmail, setMemberEmail] = useState("");
   const [memberRole, setMemberRole] = useState<"Member" | "Assistant">("Member");
 
-  const [error, setError] = useState<string | null>(null);
+  const [pageError, setPageError] = useState<string | null>(null);
 
-  async function loadOrganizationDetails() {
-    setError(null);
-    setLoading(true);
+  async function loadOrganizationDetails(options?: { silent?: boolean }) {
+    const silent = options?.silent ?? false;
+
+    if (!silent) {
+      setPageError(null);
+      setLoading(true);
+    }
 
     try {
       if (!id) {
         setOrg(null);
-        setError("Organization id bulunamadı.");
+        setPageError("Organizasyon kimliği bulunamadı.");
         return;
       }
 
@@ -102,27 +110,38 @@ export default function OrganizationDetailsClient({ id }: { id: string }) {
       setMe(meData);
     } catch (e: any) {
       setOrg(null);
-      setError(e?.message ?? "Unknown error");
+      setPageError(e?.message ?? "Organizasyon bilgileri yüklenemedi.");
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   }
 
-  async function loadMembers() {
-    setMembersLoading(true);
+  async function loadMembers(options?: { silent?: boolean }) {
+    const silent = options?.silent ?? false;
+
+    if (!silent) {
+      setMembersLoading(true);
+    }
 
     try {
       const data = await getOrganizationMembers(id);
       setMembers(data);
     } catch (e: any) {
-      setError(e?.message ?? "Üyeler yüklenemedi.");
+      setPageError(e?.message ?? "Üyeler yüklenemedi.");
     } finally {
-      setMembersLoading(false);
+      if (!silent) {
+        setMembersLoading(false);
+      }
     }
   }
 
-  async function refreshAll() {
-    await Promise.all([loadOrganizationDetails(), loadMembers()]);
+  async function refreshAll(options?: { silent?: boolean }) {
+    await Promise.all([
+      loadOrganizationDetails({ silent: options?.silent }),
+      loadMembers({ silent: options?.silent }),
+    ]);
   }
 
   useEffect(() => {
@@ -134,17 +153,38 @@ export default function OrganizationDetailsClient({ id }: { id: string }) {
     return org.ownerUserId === me.userId;
   }, [org?.ownerUserId, me?.userId]);
 
+  const isSuperAdmin = useMemo(() => {
+    return (me?.roles ?? []).includes("SuperAdmin");
+  }, [me?.roles]);
+
+  const canManageOrganization = isOwner || isSuperAdmin;
+
   async function handleToggleActive() {
     if (!org?.id || typeof org.isActive !== "boolean") return;
 
     setActionLoading(true);
-    setError(null);
+    setPageError(null);
 
     try {
       await setOrganizationActive(org.id, !org.isActive);
-      await loadOrganizationDetails();
+
+      setOrg((prev) =>
+        prev ? { ...prev, isActive: !prev.isActive } : prev
+      );
+
+      showToast({
+        message: org.isActive
+          ? "Organizasyon başarıyla pasif hale getirildi."
+          : "Organizasyon başarıyla aktif hale getirildi.",
+        type: "success",
+      });
+
+      await loadOrganizationDetails({ silent: true });
     } catch (e: any) {
-      setError(e?.message ?? "Durum güncellenemedi.");
+      showToast({
+        message: e?.message ?? "Organizasyon durumu güncellenemedi.",
+        type: "error",
+      });
     } finally {
       setActionLoading(false);
     }
@@ -153,22 +193,38 @@ export default function OrganizationDetailsClient({ id }: { id: string }) {
   async function handleAddMember(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
-    if (!memberEmail.trim()) return;
+    if (!memberEmail.trim()) {
+      showToast({
+        message: "Lütfen geçerli bir e-posta gir.",
+        type: "error",
+      });
+      return;
+    }
 
     setActionLoading(true);
-    setError(null);
+    setPageError(null);
 
     try {
-      await addOrganizationMember(id, {
+      const added = await addOrganizationMember(id, {
         email: memberEmail.trim(),
         role: memberRole,
       });
 
+      setMembers((prev) => [added, ...prev]);
       setMemberEmail("");
       setMemberRole("Member");
-      await loadMembers();
+
+      showToast({
+        message: "Üye başarıyla organizasyona eklendi.",
+        type: "success",
+      });
+
+      await loadMembers({ silent: true });
     } catch (e: any) {
-      setError(e?.message ?? "Üye eklenemedi.");
+      showToast({
+        message: e?.message ?? "Üye eklenemedi.",
+        type: "error",
+      });
     } finally {
       setActionLoading(false);
     }
@@ -180,17 +236,30 @@ export default function OrganizationDetailsClient({ id }: { id: string }) {
     const newRole = member.role === "Assistant" ? "Member" : "Assistant";
 
     setActionLoading(true);
-    setError(null);
+    setPageError(null);
 
     try {
-      await updateOrganizationMember(id, member.id, {
+      const updated = await updateOrganizationMember(id, member.id, {
         role: newRole,
         isActive: member.isActive,
       });
 
-      await loadMembers();
+      setMembers((prev) =>
+        prev.map((x) => (x.id === member.id ? updated : x))
+      );
+
+      showToast({
+        message:
+          newRole === "Assistant"
+            ? "Kullanıcı Assistant rolüne geçirildi."
+            : "Kullanıcı Member rolüne geçirildi.",
+        type: "success",
+      });
     } catch (e: any) {
-      setError(e?.message ?? "Rol güncellenemedi.");
+      showToast({
+        message: e?.message ?? "Rol güncellenemedi.",
+        type: "error",
+      });
     } finally {
       setActionLoading(false);
     }
@@ -200,17 +269,29 @@ export default function OrganizationDetailsClient({ id }: { id: string }) {
     if (member.role === "Owner") return;
 
     setActionLoading(true);
-    setError(null);
+    setPageError(null);
 
     try {
-      await updateOrganizationMember(id, member.id, {
+      const updated = await updateOrganizationMember(id, member.id, {
         role: member.role as "Member" | "Assistant",
         isActive: !member.isActive,
       });
 
-      await loadMembers();
+      setMembers((prev) =>
+        prev.map((x) => (x.id === member.id ? updated : x))
+      );
+
+      showToast({
+        message: member.isActive
+          ? "Üye pasif hale getirildi."
+          : "Üye tekrar aktif hale getirildi.",
+        type: "success",
+      });
     } catch (e: any) {
-      setError(e?.message ?? "Üye durumu güncellenemedi.");
+      showToast({
+        message: e?.message ?? "Üye durumu güncellenemedi.",
+        type: "error",
+      });
     } finally {
       setActionLoading(false);
     }
@@ -226,13 +307,53 @@ export default function OrganizationDetailsClient({ id }: { id: string }) {
     if (!confirmed) return;
 
     setActionLoading(true);
-    setError(null);
+    setPageError(null);
 
     try {
       await deleteOrganizationMember(id, member.id);
-      await loadMembers();
+
+      setMembers((prev) => prev.filter((x) => x.id !== member.id));
+
+      showToast({
+        message: "Üye organizasyondan çıkarıldı.",
+        type: "success",
+      });
     } catch (e: any) {
-      setError(e?.message ?? "Üye silinemedi.");
+      showToast({
+        message: e?.message ?? "Üye silinemedi.",
+        type: "error",
+      });
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function handleTransferOwnership(member: OrganizationMemberDto) {
+    if (member.role === "Owner") return;
+
+    const confirmed = window.confirm(
+      `${member.email} kullanıcısını yeni owner yapmak istiyor musun? Mevcut owner Assistant rolüne düşecek.`
+    );
+
+    if (!confirmed) return;
+
+    setActionLoading(true);
+    setPageError(null);
+
+    try {
+      await transferOrganizationOwnership(id, member.userId);
+
+      showToast({
+        message: "Owner transfer başarıyla tamamlandı.",
+        type: "success",
+      });
+
+      await refreshAll({ silent: true });
+    } catch (e: any) {
+      showToast({
+        message: e?.message ?? "Owner transfer başarısız oldu.",
+        type: "error",
+      });
     } finally {
       setActionLoading(false);
     }
@@ -264,9 +385,9 @@ export default function OrganizationDetailsClient({ id }: { id: string }) {
             <div className="mb-4 text-sm text-gray-600">Yükleniyor...</div>
           ) : null}
 
-          {error ? (
+          {pageError ? (
             <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-              {error}
+              {pageError}
             </div>
           ) : null}
 
@@ -277,22 +398,25 @@ export default function OrganizationDetailsClient({ id }: { id: string }) {
                 {org?.isActive ? "Aktif" : "Pasif"}
               </div>
               <div className="mt-1 text-xs text-gray-500">
-                Owner: {isOwner ? "Evet" : "Hayır"}
+                Owner: {isOwner ? "Evet" : "Hayır"} / SuperAdmin:{" "}
+                {isSuperAdmin ? "Evet" : "Hayır"}
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={handleToggleActive}
-              disabled={actionLoading || !org}
-              className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-800 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {actionLoading
-                ? "Güncelleniyor..."
-                : org?.isActive
-                ? "Pasife al"
-                : "Aktif et"}
-            </button>
+            {canManageOrganization ? (
+              <button
+                type="button"
+                onClick={handleToggleActive}
+                disabled={actionLoading || !org}
+                className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-800 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {actionLoading
+                  ? "Güncelleniyor..."
+                  : org?.isActive
+                  ? "Pasife al"
+                  : "Aktif et"}
+              </button>
+            ) : null}
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -342,35 +466,37 @@ export default function OrganizationDetailsClient({ id }: { id: string }) {
             </p>
           </div>
 
-          <form
-            onSubmit={handleAddMember}
-            className="mb-6 grid gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4 sm:grid-cols-[1fr_180px_140px]"
-          >
-            <input
-              type="email"
-              value={memberEmail}
-              onChange={(e) => setMemberEmail(e.target.value)}
-              placeholder="kullanici@email.com"
-              className="rounded-xl border border-gray-300 px-3 py-2 text-gray-900 outline-none transition focus:border-gray-500"
-            />
-
-            <select
-              value={memberRole}
-              onChange={(e) => setMemberRole(e.target.value as "Member" | "Assistant")}
-              className="rounded-xl border border-gray-300 px-3 py-2 text-gray-900 outline-none transition focus:border-gray-500"
+          {canManageOrganization ? (
+            <form
+              onSubmit={handleAddMember}
+              className="mb-6 grid gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4 sm:grid-cols-[1fr_180px_140px]"
             >
-              <option value="Member">Member</option>
-              <option value="Assistant">Assistant</option>
-            </select>
+              <input
+                type="email"
+                value={memberEmail}
+                onChange={(e) => setMemberEmail(e.target.value)}
+                placeholder="kullanici@email.com"
+                className="rounded-xl border border-gray-300 px-3 py-2 text-gray-900 outline-none transition focus:border-gray-500"
+              />
 
-            <button
-              type="submit"
-              disabled={actionLoading}
-              className="rounded-xl bg-black px-4 py-2 text-sm font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {actionLoading ? "Ekleniyor..." : "Üye ekle"}
-            </button>
-          </form>
+              <select
+                value={memberRole}
+                onChange={(e) => setMemberRole(e.target.value as "Member" | "Assistant")}
+                className="rounded-xl border border-gray-300 px-3 py-2 text-gray-900 outline-none transition focus:border-gray-500"
+              >
+                <option value="Member">Member</option>
+                <option value="Assistant">Assistant</option>
+              </select>
+
+              <button
+                type="submit"
+                disabled={actionLoading}
+                className="rounded-xl bg-black px-4 py-2 text-sm font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {actionLoading ? "Ekleniyor..." : "Üye ekle"}
+              </button>
+            </form>
+          ) : null}
 
           {membersLoading ? (
             <div className="text-sm text-gray-600">Üyeler yükleniyor...</div>
@@ -406,7 +532,7 @@ export default function OrganizationDetailsClient({ id }: { id: string }) {
                           </span>
                         </div>
 
-                        {!isMemberOwner ? (
+                        {canManageOrganization && !isMemberOwner ? (
                           <div className="flex flex-wrap gap-2">
                             <button
                               type="button"
@@ -426,6 +552,15 @@ export default function OrganizationDetailsClient({ id }: { id: string }) {
                               className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-800 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
                             >
                               {member.isActive ? "Pasif et" : "Aktif et"}
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleTransferOwnership(member)}
+                              disabled={actionLoading}
+                              className="rounded-lg border border-yellow-300 bg-yellow-50 px-3 py-1.5 text-xs font-medium text-yellow-700 transition hover:bg-yellow-100 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              Owner yap
                             </button>
 
                             <button

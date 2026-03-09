@@ -22,6 +22,7 @@ export type MeResponse = {
   userId: string;
   email: string;
   userName?: string | null;
+  roles?: string[];
 };
 
 export type OrganizationDto = {
@@ -108,6 +109,42 @@ async function parseResponse(response: Response) {
   }
 }
 
+function buildFriendlyErrorMessage(status: number, data: unknown): string {
+  if (typeof data === "string" && data.trim() !== "") {
+    return data;
+  }
+
+  if (data && typeof data === "object") {
+    const obj = data as Record<string, unknown>;
+
+    if (typeof obj.error === "string" && obj.error.trim() !== "") {
+      return obj.error;
+    }
+
+    if (typeof obj.message === "string" && obj.message.trim() !== "") {
+      return obj.message;
+    }
+
+    if (typeof obj.detail === "string" && obj.detail.trim() !== "") {
+      return obj.detail;
+    }
+
+    if (Array.isArray(obj.errors) && obj.errors.length > 0) {
+      const first = obj.errors[0];
+      if (typeof first === "string") return first;
+    }
+  }
+
+  if (status === 400) return "İstek işlenemedi. Gönderdiğin bilgileri kontrol et.";
+  if (status === 401) return "Oturumun geçersiz veya süresi dolmuş. Lütfen tekrar giriş yap.";
+  if (status === 403) return "Bu işlem için yetkin bulunmuyor.";
+  if (status === 404) return "Aradığın kayıt bulunamadı.";
+  if (status === 409) return "Bu işlem mevcut durumla çakışıyor.";
+  if (status >= 500) return "Sunucu tarafında bir hata oluştu. Lütfen tekrar dene.";
+
+  return "Bir hata oluştu.";
+}
+
 async function request<T>(
   path: string,
   options?: RequestInit,
@@ -131,25 +168,7 @@ async function request<T>(
   const data = await parseResponse(response);
 
   if (!response.ok) {
-    let message = "Bir hata oluştu.";
-
-    if (typeof data === "string" && data.trim() !== "") {
-      message = data;
-    } else if (data && typeof data === "object") {
-      const obj = data as Record<string, unknown>;
-
-      if (typeof obj.error === "string" && obj.error.trim() !== "") {
-        message = obj.error;
-      } else if (typeof obj.title === "string" && obj.title.trim() !== "") {
-        message = obj.title;
-      } else if (typeof obj.message === "string" && obj.message.trim() !== "") {
-        message = obj.message;
-      } else if (typeof obj.detail === "string" && obj.detail.trim() !== "") {
-        message = obj.detail;
-      }
-    }
-
-    throw new Error(message);
+    throw new Error(buildFriendlyErrorMessage(response.status, data));
   }
 
   return data as T;
@@ -300,6 +319,20 @@ export async function deleteOrganizationMember(
     `/api/organizations/${organizationId}/members/${memberId}`,
     {
       method: "DELETE",
+    },
+    true
+  );
+}
+
+export async function transferOrganizationOwnership(
+  organizationId: string,
+  newOwnerUserId: string
+): Promise<void> {
+  await request<null>(
+    `/api/organizations/${organizationId}/members/transfer-ownership`,
+    {
+      method: "POST",
+      body: JSON.stringify({ newOwnerUserId }),
     },
     true
   );
