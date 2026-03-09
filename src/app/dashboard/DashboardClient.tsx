@@ -111,6 +111,13 @@ export default function DashboardClient() {
 
             <div className="flex flex-col gap-2 sm:flex-row">
               <Link
+                href="/join"
+                className="rounded-xl border border-gray-300 px-4 py-2 text-center text-sm font-medium text-gray-800 transition hover:bg-gray-50"
+              >
+                Katılım kodu ile başvur
+              </Link>
+
+              <Link
                 href="/organizations/new"
                 className="rounded-xl bg-black px-4 py-2 text-center text-sm font-medium text-white transition hover:opacity-90"
               >

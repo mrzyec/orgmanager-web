@@ -8,12 +8,16 @@ import {
   deleteOrganizationMember,
   getMe,
   getOrganizationById,
+  getOrganizationJoinRequests,
   getOrganizationMembers,
+  regenerateOrganizationJoinCode,
+  reviewOrganizationJoinRequest,
   setOrganizationActive,
   transferOrganizationOwnership,
   updateOrganizationMember,
   type MeResponse,
   type OrganizationDto,
+  type OrganizationJoinRequestDto,
   type OrganizationMemberDto,
 } from "@/lib/api";
 
@@ -76,10 +80,12 @@ export default function OrganizationDetailsClient({ id }: { id: string }) {
   const [org, setOrg] = useState<OrganizationDto | null>(null);
   const [me, setMe] = useState<MeResponse | null>(null);
   const [members, setMembers] = useState<OrganizationMemberDto[]>([]);
+  const [joinRequests, setJoinRequests] = useState<OrganizationJoinRequestDto[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [membersLoading, setMembersLoading] = useState(false);
+  const [joinRequestsLoading, setJoinRequestsLoading] = useState(false);
 
   const [memberEmail, setMemberEmail] = useState("");
   const [memberRole, setMemberRole] = useState<"Member" | "Assistant">("Member");
@@ -137,10 +143,31 @@ export default function OrganizationDetailsClient({ id }: { id: string }) {
     }
   }
 
+  async function loadJoinRequests(options?: { silent?: boolean }) {
+    const silent = options?.silent ?? false;
+
+    if (!silent) {
+      setJoinRequestsLoading(true);
+    }
+
+    try {
+      const data = await getOrganizationJoinRequests(id);
+      setJoinRequests(data);
+    } catch {
+      // owner/superadmin değilse backend forbid dönebilir, sayfayı bozmayalım
+      setJoinRequests([]);
+    } finally {
+      if (!silent) {
+        setJoinRequestsLoading(false);
+      }
+    }
+  }
+
   async function refreshAll(options?: { silent?: boolean }) {
     await Promise.all([
       loadOrganizationDetails({ silent: options?.silent }),
       loadMembers({ silent: options?.silent }),
+      loadJoinRequests({ silent: options?.silent }),
     ]);
   }
 
@@ -168,9 +195,7 @@ export default function OrganizationDetailsClient({ id }: { id: string }) {
     try {
       await setOrganizationActive(org.id, !org.isActive);
 
-      setOrg((prev) =>
-        prev ? { ...prev, isActive: !prev.isActive } : prev
-      );
+      setOrg((prev) => (prev ? { ...prev, isActive: !prev.isActive } : prev));
 
       showToast({
         message: org.isActive
@@ -183,6 +208,55 @@ export default function OrganizationDetailsClient({ id }: { id: string }) {
     } catch (e: any) {
       showToast({
         message: e?.message ?? "Organizasyon durumu güncellenemedi.",
+        type: "error",
+      });
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function handleRegenerateJoinCode() {
+    if (!org?.id) return;
+
+    setActionLoading(true);
+
+    try {
+      const updated = await regenerateOrganizationJoinCode(org.id);
+      setOrg(updated);
+
+      showToast({
+        message: "Katılım kodu başarıyla yenilendi.",
+        type: "success",
+      });
+    } catch (e: any) {
+      showToast({
+        message: e?.message ?? "Katılım kodu yenilenemedi.",
+        type: "error",
+      });
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function handleReviewJoinRequest(requestId: string, approve: boolean) {
+    setActionLoading(true);
+
+    try {
+      await reviewOrganizationJoinRequest(requestId, approve);
+      await Promise.all([
+        loadJoinRequests({ silent: true }),
+        loadMembers({ silent: true }),
+      ]);
+
+      showToast({
+        message: approve
+          ? "Katılım talebi onaylandı."
+          : "Katılım talebi reddedildi.",
+        type: "success",
+      });
+    } catch (e: any) {
+      showToast({
+        message: e?.message ?? "Katılım talebi değerlendirilemedi.",
         type: "error",
       });
     } finally {
@@ -359,6 +433,8 @@ export default function OrganizationDetailsClient({ id }: { id: string }) {
     }
   }
 
+  const pendingJoinRequests = joinRequests.filter((x) => x.status === "Pending");
+
   return (
     <main className="min-h-screen bg-gray-50 px-4 py-8">
       <div className="mx-auto max-w-5xl space-y-6">
@@ -368,7 +444,7 @@ export default function OrganizationDetailsClient({ id }: { id: string }) {
               Organizasyon detayları
             </h1>
             <p className="mt-1 text-sm text-gray-600">
-              Organizasyona ait bilgileri ve üyeleri görüntülüyorsun.
+              Organizasyona ait bilgileri, üyeleri ve talepleri görüntülüyorsun.
             </p>
           </div>
 
@@ -446,8 +522,9 @@ export default function OrganizationDetailsClient({ id }: { id: string }) {
             />
 
             <ReadonlyField
-              label="Is Active"
-              value={org ? String(org.isActive ?? "") : ""}
+              label="Join Code"
+              value={org?.joinCode ?? ""}
+              mono
             />
 
             <ReadonlyField
@@ -456,7 +533,81 @@ export default function OrganizationDetailsClient({ id }: { id: string }) {
               mono
             />
           </div>
+
+          {canManageOrganization ? (
+            <div className="mt-4 flex justify-end">
+              <button
+                type="button"
+                onClick={handleRegenerateJoinCode}
+                disabled={actionLoading}
+                className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-800 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Kodu yenile
+              </button>
+            </div>
+          ) : null}
         </section>
+
+        {canManageOrganization ? (
+          <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+            <div className="mb-4">
+              <h2 className="text-xl font-semibold text-gray-900">
+                Bekleyen katılım talepleri
+              </h2>
+              <p className="mt-1 text-sm text-gray-600">
+                Kodu kullanarak gelen başvuruları buradan onaylayabilir veya reddedebilirsin.
+              </p>
+            </div>
+
+            {joinRequestsLoading ? (
+              <div className="text-sm text-gray-600">Talepler yükleniyor...</div>
+            ) : pendingJoinRequests.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-gray-300 p-4 text-sm text-gray-600">
+                Bekleyen katılım talebi bulunmuyor.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {pendingJoinRequests.map((request) => (
+                  <div
+                    key={request.id}
+                    className="rounded-xl border border-gray-200 p-4"
+                  >
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">
+                          {request.userEmail}
+                        </div>
+                        <div className="mt-1 text-xs text-gray-500">
+                          Talep tarihi: {request.createdAtUtc}
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleReviewJoinRequest(request.id, true)}
+                          disabled={actionLoading}
+                          className="rounded-lg border border-green-300 bg-green-50 px-3 py-1.5 text-xs font-medium text-green-700 transition hover:bg-green-100 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          Onayla
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleReviewJoinRequest(request.id, false)}
+                          disabled={actionLoading}
+                          className="rounded-lg border border-red-300 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          Reddet
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        ) : null}
 
         <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
           <div className="mb-4">

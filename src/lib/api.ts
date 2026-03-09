@@ -33,6 +33,7 @@ export type OrganizationDto = {
   city?: string | null;
   district?: string | null;
   ownerUserId?: string | null;
+  joinCode?: string | null;
   isActive?: boolean;
   paymentPeriod?: "Monthly" | "Yearly" | string | null;
   createdAtUtc?: string | null;
@@ -46,6 +47,18 @@ export type OrganizationMemberDto = {
   role: string;
   isActive: boolean;
   createdAtUtc: string;
+};
+
+export type OrganizationJoinRequestDto = {
+  id: string;
+  organizationId: string;
+  organizationName: string;
+  userId: string;
+  userEmail: string;
+  status: string;
+  createdAtUtc: string;
+  reviewedAtUtc?: string | null;
+  reviewedByUserId?: string | null;
 };
 
 export type AddOrganizationMemberRequest = {
@@ -272,6 +285,18 @@ export async function setOrganizationActive(
   );
 }
 
+export async function regenerateOrganizationJoinCode(
+  id: string
+): Promise<OrganizationDto> {
+  return request<OrganizationDto>(
+    `/api/organizations/${id}/regenerate-join-code`,
+    {
+      method: "POST",
+    },
+    true
+  );
+}
+
 export async function getOrganizationMembers(
   organizationId: string
 ): Promise<OrganizationMemberDto[]> {
@@ -333,6 +358,63 @@ export async function transferOrganizationOwnership(
     {
       method: "POST",
       body: JSON.stringify({ newOwnerUserId }),
+    },
+    true
+  );
+}
+
+export async function createOrganizationJoinRequest(
+  joinCode: string
+): Promise<OrganizationJoinRequestDto> {
+  return request<OrganizationJoinRequestDto>(
+    "/api/organization-join-requests",
+    {
+      method: "POST",
+      body: JSON.stringify({ joinCode }),
+    },
+    true
+  );
+}
+
+export async function getMyOrganizationJoinRequests(): Promise<OrganizationJoinRequestDto[]> {
+  return request<OrganizationJoinRequestDto[]>(
+    "/api/organization-join-requests/mine",
+    { method: "GET" },
+    true
+  );
+}
+
+export async function getOrganizationJoinRequests(
+  organizationId: string
+): Promise<OrganizationJoinRequestDto[]> {
+  return request<OrganizationJoinRequestDto[]>(
+    `/api/organization-join-requests/organization/${organizationId}`,
+    { method: "GET" },
+    true
+  );
+}
+
+export async function reviewOrganizationJoinRequest(
+  requestId: string,
+  approve: boolean
+): Promise<void> {
+  await request<null>(
+    `/api/organization-join-requests/${requestId}/review`,
+    {
+      method: "POST",
+      body: JSON.stringify({ approve }),
+    },
+    true
+  );
+}
+
+export async function cancelOrganizationJoinRequest(
+  requestId: string
+): Promise<void> {
+  await request<null>(
+    `/api/organization-join-requests/${requestId}/cancel`,
+    {
+      method: "DELETE",
     },
     true
   );
