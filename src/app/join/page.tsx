@@ -17,52 +17,7 @@ import {
   getMyOrganizationJoinRequests,
   type OrganizationJoinRequestDto,
 } from "@/lib/api";
-
-function formatUtcDate(value?: string | null) {
-  if (!value) return "-";
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-
-  return new Intl.DateTimeFormat("tr-TR", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
-}
-
-function JoinRequestStatusBadge({ status }: { status: string }) {
-  const normalized = status.toLowerCase();
-
-  if (normalized === "pending") {
-    return (
-      <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
-        Beklemede
-      </span>
-    );
-  }
-
-  if (normalized === "approved") {
-    return (
-      <span className="rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-medium text-green-700">
-        Onaylandı
-      </span>
-    );
-  }
-
-  if (normalized === "rejected") {
-    return (
-      <span className="rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs font-medium text-red-700">
-        Reddedildi
-      </span>
-    );
-  }
-
-  return (
-    <span className="rounded-full border border-gray-200 bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
-      {status}
-    </span>
-  );
-}
+import { MyJoinRequestsList } from "@/components/join-ui";
 
 export default function JoinPage() {
   const { showToast } = useToast();
@@ -172,69 +127,12 @@ export default function JoinPage() {
         </form>
       </AppCard>
 
-      <AppCard>
-        <div className="mb-4">
-          <h2 className="text-xl font-semibold tracking-tight text-gray-900">
-            Başvurularım
-          </h2>
-          <p className="mt-1 text-sm text-gray-600">
-            Daha önce gönderdiğin başvuruları burada görebilirsin.
-          </p>
-        </div>
-
-        {loading ? (
-          <div className="text-sm text-gray-600">Başvurular yükleniyor...</div>
-        ) : requests.length === 0 ? (
-          <div className="rounded-3xl border border-dashed border-gray-300 bg-gray-50/70 p-5 text-sm text-gray-600">
-            Henüz hiç başvuru bulunmuyor.
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {requests.map((request) => {
-              const isPending = request.status === "Pending";
-
-              return (
-                <div
-                  key={request.id}
-                  className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm"
-                >
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <div className="text-sm font-medium text-gray-900">
-                        {request.organizationName}
-                      </div>
-                      <div className="mt-1 text-xs text-gray-500">
-                        Oluşturulma: {formatUtcDate(request.createdAtUtc)}
-                      </div>
-
-                      {request.reviewedAtUtc ? (
-                        <div className="mt-1 text-xs text-gray-500">
-                          Değerlendirilme: {formatUtcDate(request.reviewedAtUtc)}
-                        </div>
-                      ) : null}
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <JoinRequestStatusBadge status={request.status} />
-
-                      {isPending ? (
-                        <AppButton
-                          size="sm"
-                          tone="danger"
-                          onClick={() => handleCancelRequest(request)}
-                          disabled={actionLoading}
-                        >
-                          Geri çek
-                        </AppButton>
-                      ) : null}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </AppCard>
+      <MyJoinRequestsList
+        requests={requests}
+        loading={loading}
+        actionLoading={actionLoading}
+        onCancel={handleCancelRequest}
+      />
     </AppPage>
   );
 }
