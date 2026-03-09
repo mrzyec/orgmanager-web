@@ -74,13 +74,59 @@ function MemberRoleBadge({ role }: { role: string }) {
   );
 }
 
+function JoinRequestStatusBadge({ status }: { status: string }) {
+  const normalized = status.toLowerCase();
+
+  if (normalized === "pending") {
+    return (
+      <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
+        Beklemede
+      </span>
+    );
+  }
+
+  if (normalized === "approved") {
+    return (
+      <span className="rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-medium text-green-700">
+        Onaylandı
+      </span>
+    );
+  }
+
+  if (normalized === "rejected") {
+    return (
+      <span className="rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs font-medium text-red-700">
+        Reddedildi
+      </span>
+    );
+  }
+
+  return (
+    <span className="rounded-full border border-gray-200 bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
+      {status}
+    </span>
+  );
+}
+
+function UserInitialAvatar({ email }: { email: string }) {
+  const letter = (email?.trim()?.[0] ?? "?").toUpperCase();
+
+  return (
+    <div className="flex h-11 w-11 items-center justify-center rounded-full border border-gray-200 bg-gray-100 text-sm font-semibold text-gray-700">
+      {letter}
+    </div>
+  );
+}
+
 export default function OrganizationDetailsClient({ id }: { id: string }) {
   const { showToast } = useToast();
 
   const [org, setOrg] = useState<OrganizationDto | null>(null);
   const [me, setMe] = useState<MeResponse | null>(null);
   const [members, setMembers] = useState<OrganizationMemberDto[]>([]);
-  const [joinRequests, setJoinRequests] = useState<OrganizationJoinRequestDto[]>([]);
+  const [joinRequests, setJoinRequests] = useState<OrganizationJoinRequestDto[]>(
+    []
+  );
 
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -154,7 +200,6 @@ export default function OrganizationDetailsClient({ id }: { id: string }) {
       const data = await getOrganizationJoinRequests(id);
       setJoinRequests(data);
     } catch {
-      // owner/superadmin değilse backend forbid dönebilir, sayfayı bozmayalım
       setJoinRequests([]);
     } finally {
       if (!silent) {
@@ -186,6 +231,11 @@ export default function OrganizationDetailsClient({ id }: { id: string }) {
 
   const canManageOrganization = isOwner || isSuperAdmin;
 
+  const pendingJoinRequests = useMemo(
+    () => joinRequests.filter((x) => x.status === "Pending"),
+    [joinRequests]
+  );
+
   async function handleToggleActive() {
     if (!org?.id || typeof org.isActive !== "boolean") return;
 
@@ -212,6 +262,24 @@ export default function OrganizationDetailsClient({ id }: { id: string }) {
       });
     } finally {
       setActionLoading(false);
+    }
+  }
+
+  async function handleCopyJoinCode() {
+    if (!org?.joinCode) return;
+
+    try {
+      await navigator.clipboard.writeText(org.joinCode);
+
+      showToast({
+        message: "Katılım kodu panoya kopyalandı.",
+        type: "success",
+      });
+    } catch {
+      showToast({
+        message: "Katılım kodu kopyalanamadı.",
+        type: "error",
+      });
     }
   }
 
@@ -433,8 +501,6 @@ export default function OrganizationDetailsClient({ id }: { id: string }) {
     }
   }
 
-  const pendingJoinRequests = joinRequests.filter((x) => x.status === "Pending");
-
   return (
     <main className="min-h-screen bg-gray-50 px-4 py-8">
       <div className="mx-auto max-w-5xl space-y-6">
@@ -521,11 +587,36 @@ export default function OrganizationDetailsClient({ id }: { id: string }) {
               mono
             />
 
-            <ReadonlyField
-              label="Join Code"
-              value={org?.joinCode ?? ""}
-              mono
-            />
+            <div className="space-y-1 sm:col-span-2">
+              <div className="text-sm text-gray-600">Join Code</div>
+
+              <div className="flex flex-col gap-2 rounded-xl border border-gray-300 bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="break-all font-mono text-sm text-gray-900">
+                  {org?.joinCode ?? ""}
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleCopyJoinCode}
+                    className="rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-800 transition hover:bg-gray-50"
+                  >
+                    Kopyala
+                  </button>
+
+                  {canManageOrganization ? (
+                    <button
+                      type="button"
+                      onClick={handleRegenerateJoinCode}
+                      disabled={actionLoading}
+                      className="rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-800 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Kodu yenile
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            </div>
 
             <ReadonlyField
               label="Created At (UTC)"
@@ -533,30 +624,23 @@ export default function OrganizationDetailsClient({ id }: { id: string }) {
               mono
             />
           </div>
-
-          {canManageOrganization ? (
-            <div className="mt-4 flex justify-end">
-              <button
-                type="button"
-                onClick={handleRegenerateJoinCode}
-                disabled={actionLoading}
-                className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-800 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Kodu yenile
-              </button>
-            </div>
-          ) : null}
         </section>
 
         {canManageOrganization ? (
           <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-            <div className="mb-4">
-              <h2 className="text-xl font-semibold text-gray-900">
-                Bekleyen katılım talepleri
-              </h2>
-              <p className="mt-1 text-sm text-gray-600">
-                Kodu kullanarak gelen başvuruları buradan onaylayabilir veya reddedebilirsin.
-              </p>
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">
+                  Bekleyen katılım talepleri
+                </h2>
+                <p className="mt-1 text-sm text-gray-600">
+                  Katılım kodu ile gelen başvuruları buradan yönetebilirsin.
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-800">
+                Bekleyen: {pendingJoinRequests.length}
+              </div>
             </div>
 
             {joinRequestsLoading ? (
@@ -570,24 +654,36 @@ export default function OrganizationDetailsClient({ id }: { id: string }) {
                 {pendingJoinRequests.map((request) => (
                   <div
                     key={request.id}
-                    className="rounded-xl border border-gray-200 p-4"
+                    className="rounded-2xl border border-gray-200 p-4"
                   >
-                    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">
-                          {request.userEmail}
-                        </div>
-                        <div className="mt-1 text-xs text-gray-500">
-                          Talep tarihi: {request.createdAtUtc}
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                      <div className="flex items-start gap-3">
+                        <UserInitialAvatar email={request.userEmail} />
+
+                        <div>
+                          <div className="text-sm font-semibold text-gray-900">
+                            {request.userEmail}
+                          </div>
+
+                          <div className="mt-1 flex flex-wrap items-center gap-2">
+                            <JoinRequestStatusBadge status={request.status} />
+                            <span className="text-xs text-gray-500">
+                              Talep tarihi: {request.createdAtUtc}
+                            </span>
+                          </div>
+
+                          <div className="mt-2 text-xs text-gray-500">
+                            UserId: {request.userId}
+                          </div>
                         </div>
                       </div>
 
-                      <div className="flex gap-2">
+                      <div className="flex flex-wrap gap-2">
                         <button
                           type="button"
                           onClick={() => handleReviewJoinRequest(request.id, true)}
                           disabled={actionLoading}
-                          className="rounded-lg border border-green-300 bg-green-50 px-3 py-1.5 text-xs font-medium text-green-700 transition hover:bg-green-100 disabled:cursor-not-allowed disabled:opacity-60"
+                          className="rounded-lg border border-green-300 bg-green-50 px-3 py-2 text-xs font-medium text-green-700 transition hover:bg-green-100 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           Onayla
                         </button>
@@ -596,7 +692,7 @@ export default function OrganizationDetailsClient({ id }: { id: string }) {
                           type="button"
                           onClick={() => handleReviewJoinRequest(request.id, false)}
                           disabled={actionLoading}
-                          className="rounded-lg border border-red-300 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                          className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs font-medium text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           Reddet
                         </button>
