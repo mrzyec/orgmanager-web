@@ -10,6 +10,13 @@ import {
   AppPage,
   AppSectionHeader,
 } from "@/components/ui";
+import { AppField, AppInput, AppSelect } from "@/components/form-ui";
+import { ReadonlyField, UserInitialAvatar } from "@/components/detail-ui";
+import {
+  JoinRequestStatusBadge,
+  MemberRoleBadge,
+  StatusPill,
+} from "@/components/badges";
 import {
   addOrganizationMember,
   deleteOrganizationMember,
@@ -38,159 +45,6 @@ function formatUtcDate(value?: string | null) {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(date);
-}
-
-type ReadonlyFieldProps = {
-  label: string;
-  value: string;
-  className?: string;
-  mono?: boolean;
-};
-
-function ReadonlyField({
-  label,
-  value,
-  className = "",
-  mono = false,
-}: ReadonlyFieldProps) {
-  return (
-    <label className={`space-y-1 ${className}`}>
-      <div className="text-sm text-gray-600">{label}</div>
-      <input
-        className={`w-full rounded-3xl border border-gray-300 bg-white px-4 py-3 text-gray-900 outline-none read-only:bg-white read-only:text-gray-900 ${
-          mono ? "font-mono" : ""
-        }`}
-        value={value}
-        readOnly
-      />
-    </label>
-  );
-}
-
-function MemberRoleBadge({ role }: { role: string }) {
-  const normalized = role.toLowerCase();
-
-  if (normalized === "owner") {
-    return (
-      <span className="rounded-full border border-yellow-200 bg-yellow-50 px-2 py-1 text-xs font-medium text-yellow-700">
-        Owner
-      </span>
-    );
-  }
-
-  if (normalized === "assistant") {
-    return (
-      <span className="rounded-full border border-blue-200 bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700">
-        Assistant
-      </span>
-    );
-  }
-
-  return (
-    <span className="rounded-full border border-gray-200 bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700">
-      Member
-    </span>
-  );
-}
-
-function JoinRequestStatusBadge({ status }: { status: string }) {
-  const normalized = status.toLowerCase();
-
-  if (normalized === "pending") {
-    return (
-      <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
-        Beklemede
-      </span>
-    );
-  }
-
-  if (normalized === "approved") {
-    return (
-      <span className="rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-medium text-green-700">
-        Onaylandı
-      </span>
-    );
-  }
-
-  if (normalized === "rejected") {
-    return (
-      <span className="rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs font-medium text-red-700">
-        Reddedildi
-      </span>
-    );
-  }
-
-  return (
-    <span className="rounded-full border border-gray-200 bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
-      {status}
-    </span>
-  );
-}
-
-function UserInitialAvatar({ email }: { email: string }) {
-  const letter = (email?.trim()?.[0] ?? "?").toUpperCase();
-
-  return (
-    <div className="flex h-11 w-11 items-center justify-center rounded-full border border-gray-200 bg-gradient-to-br from-gray-100 to-white text-sm font-semibold text-gray-700 shadow-sm">
-      {letter}
-    </div>
-  );
-}
-
-function StatusPill({
-  label,
-  active,
-  tone = "neutral",
-}: {
-  label: string;
-  active: boolean;
-  tone?: "neutral" | "green" | "blue" | "yellow" | "purple";
-}) {
-  if (!active) {
-    return (
-      <span className="rounded-full border border-gray-200 bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-500">
-        {label}
-      </span>
-    );
-  }
-
-  if (tone === "green") {
-    return (
-      <span className="rounded-full border border-green-200 bg-green-50 px-3 py-1.5 text-xs font-semibold text-green-700 shadow-sm">
-        {label}
-      </span>
-    );
-  }
-
-  if (tone === "blue") {
-    return (
-      <span className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 shadow-sm">
-        {label}
-      </span>
-    );
-  }
-
-  if (tone === "yellow") {
-    return (
-      <span className="rounded-full border border-yellow-200 bg-yellow-50 px-3 py-1.5 text-xs font-semibold text-yellow-700 shadow-sm">
-        {label}
-      </span>
-    );
-  }
-
-  if (tone === "purple") {
-    return (
-      <span className="rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 shadow-sm">
-        {label}
-      </span>
-    );
-  }
-
-  return (
-    <span className="rounded-full border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 shadow-sm">
-      {label}
-    </span>
-  );
 }
 
 export default function OrganizationDetailsClient({ id }: { id: string }) {
@@ -770,26 +624,30 @@ export default function OrganizationDetailsClient({ id }: { id: string }) {
             onSubmit={handleAddMember}
             className="mb-6 grid gap-3 rounded-3xl border border-gray-200 bg-gray-50/80 p-4 sm:grid-cols-[1fr_180px_160px]"
           >
-            <input
-              type="email"
-              value={memberEmail}
-              onChange={(e) => setMemberEmail(e.target.value)}
-              placeholder="kullanici@email.com"
-              className="rounded-3xl border border-gray-300 bg-white px-4 py-3 text-gray-900 outline-none transition-all duration-200 focus:border-gray-500 focus:ring-4 focus:ring-gray-100"
-            />
+            <AppField label="Üye e-posta">
+              <AppInput
+                type="email"
+                value={memberEmail}
+                onChange={(e) => setMemberEmail(e.target.value)}
+                placeholder="kullanici@email.com"
+              />
+            </AppField>
 
-            <select
-              value={memberRole}
-              onChange={(e) => setMemberRole(e.target.value as "Member" | "Assistant")}
-              className="rounded-3xl border border-gray-300 bg-white px-4 py-3 text-gray-900 outline-none transition-all duration-200 focus:border-gray-500 focus:ring-4 focus:ring-gray-100"
-            >
-              <option value="Member">Member</option>
-              <option value="Assistant">Assistant</option>
-            </select>
+            <AppField label="Rol">
+              <AppSelect
+                value={memberRole}
+                onChange={(e) => setMemberRole(e.target.value as "Member" | "Assistant")}
+              >
+                <option value="Member">Member</option>
+                <option value="Assistant">Assistant</option>
+              </AppSelect>
+            </AppField>
 
-            <AppButton type="submit" tone="primary" disabled={actionLoading}>
-              Üye ekle
-            </AppButton>
+            <div className="flex items-end">
+              <AppButton type="submit" tone="primary" disabled={actionLoading} className="w-full">
+                Üye ekle
+              </AppButton>
+            </div>
           </form>
         ) : null}
 
