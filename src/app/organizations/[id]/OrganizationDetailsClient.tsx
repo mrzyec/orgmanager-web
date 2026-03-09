@@ -8,15 +8,14 @@ import {
   AppHero,
   AppLinkButton,
   AppPage,
-  AppSectionHeader,
 } from "@/components/ui";
-import { AppField, AppInput, AppSelect } from "@/components/form-ui";
-import { ReadonlyField, UserInitialAvatar } from "@/components/detail-ui";
+import { ReadonlyField } from "@/components/detail-ui";
+import { StatusPill } from "@/components/badges";
 import {
-  JoinRequestStatusBadge,
-  MemberRoleBadge,
-  StatusPill,
-} from "@/components/badges";
+  PendingRequestsSection,
+  ReviewedRequestsSection,
+} from "@/components/organization-requests-section";
+import { OrganizationMembersSection } from "@/components/organization-members-section";
 import {
   addOrganizationMember,
   deleteOrganizationMember,
@@ -503,222 +502,36 @@ export default function OrganizationDetailsClient({ id }: { id: string }) {
       </AppCard>
 
       {canManageOrganization ? (
-        <AppCard>
-          <AppSectionHeader
-            title="Bekleyen katılım talepleri"
-            description="Katılım kodu ile gelen başvuruları onaylayabilir veya reddedebilirsin."
-            right={
-              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-800">
-                Bekleyen talep: {pendingJoinRequests.length}
-              </div>
-            }
-          />
-
-          {joinRequestsLoading ? (
-            <div className="text-sm text-gray-600">Talepler yükleniyor...</div>
-          ) : pendingJoinRequests.length === 0 ? (
-            <div className="rounded-3xl border border-dashed border-gray-300 bg-gray-50/70 p-5 text-sm text-gray-600">
-              Bekleyen katılım talebi bulunmuyor.
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {pendingJoinRequests.map((request) => (
-                <div key={request.id} className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
-                  <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                    <div className="flex items-start gap-3">
-                      <UserInitialAvatar email={request.userEmail} />
-                      <div>
-                        <div className="text-sm font-semibold text-gray-900">{request.userEmail}</div>
-                        <div className="mt-1 flex flex-wrap items-center gap-2">
-                          <JoinRequestStatusBadge status={request.status} />
-                          <span className="text-xs text-gray-500">
-                            Talep tarihi: {formatUtcDate(request.createdAtUtc)}
-                          </span>
-                        </div>
-                        <div className="mt-2 text-xs text-gray-500">UserId: {request.userId}</div>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2">
-                      <AppButton
-                        tone="success"
-                        size="sm"
-                        onClick={() => handleReviewJoinRequest(request.id, true)}
-                        disabled={actionLoading}
-                      >
-                        Başvuruyu onayla
-                      </AppButton>
-
-                      <AppButton
-                        tone="danger"
-                        size="sm"
-                        onClick={() => handleReviewJoinRequest(request.id, false)}
-                        disabled={actionLoading}
-                      >
-                        Başvuruyu reddet
-                      </AppButton>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </AppCard>
+        <PendingRequestsSection
+          requests={pendingJoinRequests}
+          loading={joinRequestsLoading}
+          actionLoading={actionLoading}
+          onReview={handleReviewJoinRequest}
+        />
       ) : null}
 
       {canManageOrganization ? (
-        <AppCard>
-          <AppSectionHeader
-            title="Başvuru geçmişi"
-            description="Sonuçlanmış başvuruları geçmiş olarak burada görebilirsin."
-            right={
-              <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-2 text-sm font-medium text-gray-800">
-                Toplam geçmiş kayıt: {reviewedJoinRequests.length}
-              </div>
-            }
-          />
-
-          {joinRequestsLoading ? (
-            <div className="text-sm text-gray-600">Geçmiş yükleniyor...</div>
-          ) : reviewedJoinRequests.length === 0 ? (
-            <div className="rounded-3xl border border-dashed border-gray-300 bg-gray-50/70 p-5 text-sm text-gray-600">
-              Sonuçlanmış başvuru bulunmuyor.
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {reviewedJoinRequests.map((request) => (
-                <div key={request.id} className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
-                  <div className="flex items-start gap-3">
-                    <UserInitialAvatar email={request.userEmail} />
-                    <div>
-                      <div className="text-sm font-semibold text-gray-900">{request.userEmail}</div>
-                      <div className="mt-1 flex flex-wrap items-center gap-2">
-                        <JoinRequestStatusBadge status={request.status} />
-                        <span className="text-xs text-gray-500">
-                          Başvuru: {formatUtcDate(request.createdAtUtc)}
-                        </span>
-                        {request.reviewedAtUtc ? (
-                          <span className="text-xs text-gray-500">
-                            Sonuçlanma: {formatUtcDate(request.reviewedAtUtc)}
-                          </span>
-                        ) : null}
-                      </div>
-                      <div className="mt-2 text-xs text-gray-500">UserId: {request.userId}</div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </AppCard>
+        <ReviewedRequestsSection
+          requests={reviewedJoinRequests}
+          loading={joinRequestsLoading}
+        />
       ) : null}
 
-      <AppCard>
-        <AppSectionHeader
-          title="Organizasyon üyeleri"
-          description="Organizasyona kayıtlı kullanıcıları görüntüleyebilir ve yetkiliysen yönetebilirsin."
-        />
-
-        {canManageOrganization ? (
-          <form
-            onSubmit={handleAddMember}
-            className="mb-6 grid gap-3 rounded-3xl border border-gray-200 bg-gray-50/80 p-4 sm:grid-cols-[1fr_180px_160px]"
-          >
-            <AppField label="Üye e-posta">
-              <AppInput
-                type="email"
-                value={memberEmail}
-                onChange={(e) => setMemberEmail(e.target.value)}
-                placeholder="kullanici@email.com"
-              />
-            </AppField>
-
-            <AppField label="Rol">
-              <AppSelect
-                value={memberRole}
-                onChange={(e) => setMemberRole(e.target.value as "Member" | "Assistant")}
-              >
-                <option value="Member">Member</option>
-                <option value="Assistant">Assistant</option>
-              </AppSelect>
-            </AppField>
-
-            <div className="flex items-end">
-              <AppButton type="submit" tone="primary" disabled={actionLoading} className="w-full">
-                Üye ekle
-              </AppButton>
-            </div>
-          </form>
-        ) : null}
-
-        {membersLoading ? (
-          <div className="text-sm text-gray-600">Üyeler yükleniyor...</div>
-        ) : members.length === 0 ? (
-          <div className="rounded-3xl border border-dashed border-gray-300 bg-gray-50/70 p-5 text-sm text-gray-600">
-            Henüz üye bulunmuyor.
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {members.map((member) => {
-              const isMemberOwner = member.role === "Owner";
-
-              return (
-                <div key={member.id} className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
-                  <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                    <div>
-                      <div className="text-sm font-medium text-gray-900">{member.email}</div>
-                      <div className="mt-1 text-xs text-gray-500">UserId: {member.userId}</div>
-                    </div>
-
-                    <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-                      <div className="flex items-center gap-2">
-                        <MemberRoleBadge role={member.role} />
-                        <span className="rounded-full border border-gray-200 bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700">
-                          {member.isActive ? "Aktif" : "Pasif"}
-                        </span>
-                      </div>
-
-                      {canManageOrganization && !isMemberOwner ? (
-                        <div className="flex flex-wrap gap-2">
-                          <AppButton
-                            onClick={() => handleToggleRole(member)}
-                            disabled={actionLoading}
-                          >
-                            {member.role === "Assistant" ? "Member yap" : "Assistant yap"}
-                          </AppButton>
-
-                          <AppButton
-                            onClick={() => handleToggleMemberActive(member)}
-                            disabled={actionLoading}
-                          >
-                            {member.isActive ? "Pasif et" : "Aktif et"}
-                          </AppButton>
-
-                          <AppButton
-                            tone="warning"
-                            onClick={() => handleTransferOwnership(member)}
-                            disabled={actionLoading}
-                          >
-                            Owner yap
-                          </AppButton>
-
-                          <AppButton
-                            tone="danger"
-                            onClick={() => handleDeleteMember(member)}
-                            disabled={actionLoading}
-                          >
-                            Çıkar
-                          </AppButton>
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </AppCard>
+      <OrganizationMembersSection
+        members={members}
+        loading={membersLoading}
+        canManageOrganization={canManageOrganization}
+        actionLoading={actionLoading}
+        memberEmail={memberEmail}
+        memberRole={memberRole}
+        onMemberEmailChange={setMemberEmail}
+        onMemberRoleChange={setMemberRole}
+        onAddMember={handleAddMember}
+        onToggleRole={handleToggleRole}
+        onToggleActive={handleToggleMemberActive}
+        onTransferOwnership={handleTransferOwnership}
+        onDeleteMember={handleDeleteMember}
+      />
     </AppPage>
   );
 }
