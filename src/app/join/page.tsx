@@ -11,6 +11,40 @@ import {
   type OrganizationJoinRequestDto,
 } from "@/lib/api";
 
+function JoinRequestStatusBadge({ status }: { status: string }) {
+  const normalized = status.toLowerCase();
+
+  if (normalized === "pending") {
+    return (
+      <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
+        Beklemede
+      </span>
+    );
+  }
+
+  if (normalized === "approved") {
+    return (
+      <span className="rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-medium text-green-700">
+        Onaylandı
+      </span>
+    );
+  }
+
+  if (normalized === "rejected") {
+    return (
+      <span className="rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs font-medium text-red-700">
+        Reddedildi
+      </span>
+    );
+  }
+
+  return (
+    <span className="rounded-full border border-gray-200 bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
+      {status}
+    </span>
+  );
+}
+
 export default function JoinPage() {
   const { showToast } = useToast();
 
@@ -166,12 +200,16 @@ export default function JoinPage() {
                         <div className="mt-1 text-xs text-gray-500">
                           Oluşturulma: {request.createdAtUtc}
                         </div>
+
+                        {request.reviewedAtUtc ? (
+                          <div className="mt-1 text-xs text-gray-500">
+                            Değerlendirilme: {request.reviewedAtUtc}
+                          </div>
+                        ) : null}
                       </div>
 
                       <div className="flex items-center gap-2">
-                        <div className="rounded-full border border-gray-200 bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
-                          {request.status}
-                        </div>
+                        <JoinRequestStatusBadge status={request.status} />
 
                         {isPending ? (
                           <button
