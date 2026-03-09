@@ -8,6 +8,7 @@ import {
   AppLinkButton,
   AppPage,
 } from "@/components/ui";
+import { AppField, AppInput } from "@/components/form-ui";
 import { useToast } from "@/components/ToastProvider";
 import {
   cancelOrganizationJoinRequest,
@@ -156,13 +157,14 @@ export default function JoinPage() {
       />
 
       <AppCard>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-3 sm:flex-row">
-          <input
-            value={joinCode}
-            onChange={(e) => setJoinCode(e.target.value)}
-            placeholder="Örn: ORG-ABC123"
-            className="flex-1 rounded-3xl border border-gray-300 bg-white px-4 py-3 text-gray-900 outline-none transition-all duration-200 focus:border-gray-500 focus:ring-4 focus:ring-gray-100"
-          />
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3 sm:flex-row sm:items-end">
+          <AppField label="Katılım kodu" className="flex-1">
+            <AppInput
+              value={joinCode}
+              onChange={(e) => setJoinCode(e.target.value)}
+              placeholder="Örn: ORG-ABC123"
+            />
+          </AppField>
 
           <AppButton type="submit" tone="primary" disabled={actionLoading}>
             {actionLoading ? "Gönderiliyor..." : "Başvuru gönder"}

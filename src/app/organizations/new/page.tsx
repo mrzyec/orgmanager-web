@@ -11,6 +11,7 @@ import {
   AppLinkButton,
   AppPage,
 } from "@/components/ui";
+import { AppField, AppInput, AppTextarea } from "@/components/form-ui";
 
 export default function NewOrganizationPage() {
   const router = useRouter();
@@ -110,56 +111,46 @@ export default function NewOrganizationPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-2">
-          <label className="space-y-1 sm:col-span-2">
-            <div className="text-sm text-gray-600">Organizasyon adı</div>
-            <input
+          <AppField label="Organizasyon adı" className="sm:col-span-2">
+            <AppInput
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Örn: OrgManager Spor Kulübü"
-              className="w-full rounded-3xl border border-gray-300 bg-white px-4 py-3 text-gray-900 outline-none transition-all duration-200 focus:border-gray-500 focus:ring-4 focus:ring-gray-100"
             />
-          </label>
+          </AppField>
 
-          <label className="space-y-1">
-            <div className="text-sm text-gray-600">Vergi numarası</div>
-            <input
+          <AppField label="Vergi numarası">
+            <AppInput
               value={taxNumber}
               onChange={(e) => setTaxNumber(e.target.value)}
               placeholder="Vergi numarası"
-              className="w-full rounded-3xl border border-gray-300 bg-white px-4 py-3 text-gray-900 outline-none transition-all duration-200 focus:border-gray-500 focus:ring-4 focus:ring-gray-100"
             />
-          </label>
+          </AppField>
 
-          <label className="space-y-1">
-            <div className="text-sm text-gray-600">Şehir</div>
-            <input
+          <AppField label="Şehir">
+            <AppInput
               value={city}
               onChange={(e) => setCity(e.target.value)}
               placeholder="Şehir"
-              className="w-full rounded-3xl border border-gray-300 bg-white px-4 py-3 text-gray-900 outline-none transition-all duration-200 focus:border-gray-500 focus:ring-4 focus:ring-gray-100"
             />
-          </label>
+          </AppField>
 
-          <label className="space-y-1">
-            <div className="text-sm text-gray-600">İlçe</div>
-            <input
+          <AppField label="İlçe">
+            <AppInput
               value={district}
               onChange={(e) => setDistrict(e.target.value)}
               placeholder="İlçe"
-              className="w-full rounded-3xl border border-gray-300 bg-white px-4 py-3 text-gray-900 outline-none transition-all duration-200 focus:border-gray-500 focus:ring-4 focus:ring-gray-100"
             />
-          </label>
+          </AppField>
 
-          <label className="space-y-1 sm:col-span-2">
-            <div className="text-sm text-gray-600">Açıklama</div>
-            <textarea
+          <AppField label="Açıklama" className="sm:col-span-2">
+            <AppTextarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Organizasyon hakkında kısa açıklama"
               rows={4}
-              className="w-full resize-none rounded-3xl border border-gray-300 bg-white px-4 py-3 text-gray-900 outline-none transition-all duration-200 focus:border-gray-500 focus:ring-4 focus:ring-gray-100"
             />
-          </label>
+          </AppField>
 
           <div className="sm:col-span-2 flex flex-col gap-3 pt-2 sm:flex-row sm:justify-end">
             <AppLinkButton href="/dashboard">Vazgeç</AppLinkButton>

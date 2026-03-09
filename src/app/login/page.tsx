@@ -4,7 +4,14 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ToastProvider";
 import { login } from "@/lib/api";
-import { AppButton, AppCard, AppHero, AppLinkButton, AppPage } from "@/components/ui";
+import {
+  AppButton,
+  AppCard,
+  AppHero,
+  AppLinkButton,
+  AppPage,
+} from "@/components/ui";
+import { AppField, AppInput } from "@/components/form-ui";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -75,30 +82,31 @@ export default function LoginPage() {
             />
 
             <form onSubmit={handleSubmit} className="mt-8 space-y-4">
-              <label className="block space-y-1">
-                <div className="text-sm text-gray-600">E-posta</div>
-                <input
+              <AppField label="E-posta">
+                <AppInput
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="ornek@email.com"
-                  className="w-full rounded-3xl border border-gray-300 bg-white px-4 py-3 text-gray-900 outline-none transition-all duration-200 focus:border-gray-500 focus:ring-4 focus:ring-gray-100"
                 />
-              </label>
+              </AppField>
 
-              <label className="block space-y-1">
-                <div className="text-sm text-gray-600">Şifre</div>
-                <input
+              <AppField label="Şifre">
+                <AppInput
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Şifreni gir"
-                  className="w-full rounded-3xl border border-gray-300 bg-white px-4 py-3 text-gray-900 outline-none transition-all duration-200 focus:border-gray-500 focus:ring-4 focus:ring-gray-100"
                 />
-              </label>
+              </AppField>
 
               <div className="pt-2">
-                <AppButton type="submit" tone="primary" className="w-full" disabled={loading}>
+                <AppButton
+                  type="submit"
+                  tone="primary"
+                  className="w-full"
+                  disabled={loading}
+                >
                   {loading ? "Giriş yapılıyor..." : "Giriş yap"}
                 </AppButton>
               </div>
