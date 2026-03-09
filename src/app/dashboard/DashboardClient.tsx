@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import OrgsCard from "@/components/OrgsCard";
@@ -14,6 +13,13 @@ import {
   type OrganizationDto,
   type OrganizationJoinRequestDto,
 } from "@/lib/api";
+import {
+  AppButton,
+  AppCard,
+  AppHero,
+  AppLinkButton,
+  AppPage,
+} from "@/components/ui";
 
 function formatUtcDate(value?: string | null) {
   if (!value) return "-";
@@ -27,12 +33,6 @@ function formatUtcDate(value?: string | null) {
   }).format(date);
 }
 
-const secondaryButtonClass =
-  "inline-flex items-center justify-center rounded-2xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-800 shadow-sm transition-all duration-200 hover:border-gray-500 hover:bg-gray-50 hover:shadow-md hover:-translate-y-0.5 active:translate-y-[1px] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60";
-
-const primaryButtonClass =
-  "inline-flex items-center justify-center rounded-2xl border border-black bg-black px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:border-gray-700 hover:bg-gray-900 hover:shadow-md hover:-translate-y-0.5 active:translate-y-[1px] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60";
-
 function JoinRequestSummaryCard({
   requests,
 }: {
@@ -45,7 +45,7 @@ function JoinRequestSummaryCard({
   const latestPending = requests.find((x) => x.status === "Pending");
 
   return (
-    <section className="rounded-[28px] border border-white/70 bg-white/90 p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)] backdrop-blur">
+    <AppCard>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-xl font-semibold tracking-tight text-gray-900">
@@ -56,9 +56,7 @@ function JoinRequestSummaryCard({
           </p>
         </div>
 
-        <Link href="/join" className={secondaryButtonClass}>
-          Başvurularımı aç
-        </Link>
+        <AppLinkButton href="/join">Başvurularımı aç</AppLinkButton>
       </div>
 
       <div className="mt-5 grid gap-3 sm:grid-cols-3">
@@ -101,7 +99,7 @@ function JoinRequestSummaryCard({
           Bekleyen bir başvurun bulunmuyor.
         </div>
       )}
-    </section>
+    </AppCard>
   );
 }
 
@@ -187,86 +185,67 @@ export default function DashboardClient() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[radial-gradient(circle_at_top,#f8fafc,#eef2f7)] px-4 py-8">
-        <div className="mx-auto max-w-5xl text-sm text-gray-600">
-          Dashboard yükleniyor...
-        </div>
-      </div>
+      <AppPage>
+        <div className="text-sm text-gray-600">Dashboard yükleniyor...</div>
+      </AppPage>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,#f8fafc,#eef2f7)] px-4 py-8">
-      <div className="mx-auto max-w-5xl space-y-6">
-        <div className="rounded-[30px] border border-white/70 bg-white/90 p-6 shadow-[0_12px_34px_rgba(15,23,42,0.07)] backdrop-blur">
-          <div className="flex flex-col gap-5">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <div className="inline-flex rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-medium text-gray-600">
-                  OrgManager
-                </div>
-                <h1 className="mt-3 text-3xl font-semibold tracking-tight text-gray-900">
-                  Dashboard
-                </h1>
-                <p className="mt-1 text-sm text-gray-600">
-                  Hoş geldin{me?.email ? `, ${me.email}` : ""}.
-                </p>
-              </div>
-
+    <AppPage>
+      <AppCard>
+        <div className="flex flex-col gap-5">
+          <AppHero
+            badge="OrgManager"
+            title="Dashboard"
+            description={`Hoş geldin${me?.email ? `, ${me.email}` : ""}.`}
+            right={
               <div className="flex flex-col gap-2 sm:flex-row">
-                <Link href="/join" className={secondaryButtonClass}>
-                  Katılım kodu ile başvur
-                </Link>
-
-                <Link href="/organizations/new" className={primaryButtonClass}>
+                <AppLinkButton href="/join">Katılım kodu ile başvur</AppLinkButton>
+                <AppLinkButton href="/organizations/new" tone="primary">
                   Yeni organizasyon
-                </Link>
-
-                <button
-                  onClick={handleLogout}
-                  disabled={logoutLoading}
-                  className={secondaryButtonClass}
-                >
+                </AppLinkButton>
+                <AppButton onClick={handleLogout} disabled={logoutLoading}>
                   {logoutLoading ? "Çıkış yapılıyor..." : "Çıkış yap"}
-                </button>
+                </AppButton>
+              </div>
+            }
+          />
+
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="rounded-3xl border border-gray-200 bg-gradient-to-br from-gray-50 to-white p-5">
+              <div className="text-sm text-gray-600">Toplam organizasyon</div>
+              <div className="mt-2 text-3xl font-semibold tracking-tight text-gray-900">
+                {organizations.length}
               </div>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div className="rounded-3xl border border-gray-200 bg-gradient-to-br from-gray-50 to-white p-5">
-                <div className="text-sm text-gray-600">Toplam organizasyon</div>
-                <div className="mt-2 text-3xl font-semibold tracking-tight text-gray-900">
-                  {organizations.length}
-                </div>
+            <div className="rounded-3xl border border-green-200/80 bg-gradient-to-br from-green-50 to-white p-5">
+              <div className="text-sm text-green-700">Aktif</div>
+              <div className="mt-2 text-3xl font-semibold tracking-tight text-green-800">
+                {activeCount}
               </div>
+            </div>
 
-              <div className="rounded-3xl border border-green-200/80 bg-gradient-to-br from-green-50 to-white p-5">
-                <div className="text-sm text-green-700">Aktif</div>
-                <div className="mt-2 text-3xl font-semibold tracking-tight text-green-800">
-                  {activeCount}
-                </div>
-              </div>
-
-              <div className="rounded-3xl border border-gray-200 bg-gradient-to-br from-gray-100 to-white p-5">
-                <div className="text-sm text-gray-700">Pasif</div>
-                <div className="mt-2 text-3xl font-semibold tracking-tight text-gray-800">
-                  {passiveCount}
-                </div>
+            <div className="rounded-3xl border border-gray-200 bg-gradient-to-br from-gray-100 to-white p-5">
+              <div className="text-sm text-gray-700">Pasif</div>
+              <div className="mt-2 text-3xl font-semibold tracking-tight text-gray-800">
+                {passiveCount}
               </div>
             </div>
           </div>
         </div>
+      </AppCard>
 
-        {error ? (
-          <div className="rounded-3xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {error}
-          </div>
-        ) : null}
+      {error ? (
+        <div className="rounded-3xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      ) : null}
 
-        <JoinRequestSummaryCard requests={joinRequests} />
+      <JoinRequestSummaryCard requests={joinRequests} />
 
-        <OrgsCard organizations={organizations} />
-      </div>
-    </div>
+      <OrgsCard organizations={organizations} />
+    </AppPage>
   );
 }

@@ -1,16 +1,10 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ToastProvider";
 import { register } from "@/lib/api";
-
-const secondaryButtonClass =
-  "inline-flex items-center justify-center rounded-2xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-800 shadow-sm transition-all duration-200 hover:border-gray-500 hover:bg-gray-50 hover:shadow-md hover:-translate-y-0.5 active:translate-y-[1px] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60";
-
-const primaryButtonClass =
-  "inline-flex items-center justify-center rounded-2xl border border-black bg-black px-5 py-3 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:border-gray-700 hover:bg-gray-900 hover:shadow-md hover:-translate-y-0.5 active:translate-y-[1px] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60";
+import { AppButton, AppCard, AppHero, AppLinkButton, AppPage } from "@/components/ui";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -25,26 +19,17 @@ export default function RegisterPage() {
     e.preventDefault();
 
     if (!email.trim()) {
-      showToast({
-        message: "E-posta alanı zorunludur.",
-        type: "error",
-      });
+      showToast({ message: "E-posta alanı zorunludur.", type: "error" });
       return;
     }
 
     if (!password.trim()) {
-      showToast({
-        message: "Şifre alanı zorunludur.",
-        type: "error",
-      });
+      showToast({ message: "Şifre alanı zorunludur.", type: "error" });
       return;
     }
 
     if (password.length < 6) {
-      showToast({
-        message: "Şifre en az 6 karakter olmalıdır.",
-        type: "error",
-      });
+      showToast({ message: "Şifre en az 6 karakter olmalıdır.", type: "error" });
       return;
     }
 
@@ -59,10 +44,7 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      await register({
-        email: email.trim(),
-        password,
-      });
+      await register({ email: email.trim(), password });
 
       showToast({
         message: "Kayıt başarılı. Dashboard yönlendiriliyorsun.",
@@ -81,7 +63,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,#f8fafc,#eef2f7)] px-4 py-8">
+    <AppPage>
       <div className="mx-auto flex min-h-[80vh] max-w-6xl items-center">
         <div className="grid w-full gap-6 lg:grid-cols-[1.05fr_0.95fr]">
           <section className="rounded-[32px] border border-white/70 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-8 text-white shadow-[0_20px_50px_rgba(15,23,42,0.18)]">
@@ -97,36 +79,14 @@ export default function RegisterPage() {
               Sisteme kayıt olup organizasyon davetlerini yönetebilir, katılım kodu
               ile başvurabilir ve dahil olduğun yapıları tek panelden takip edebilirsin.
             </p>
-
-            <div className="mt-8 grid gap-3 sm:grid-cols-3">
-              <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
-                <div className="text-xs text-white/60">Kayıt</div>
-                <div className="mt-2 text-lg font-semibold">Hızlı başlangıç</div>
-              </div>
-
-              <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
-                <div className="text-xs text-white/60">Erişim</div>
-                <div className="mt-2 text-lg font-semibold">Rol bazlı sistem</div>
-              </div>
-
-              <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
-                <div className="text-xs text-white/60">Katılım</div>
-                <div className="mt-2 text-lg font-semibold">Kod ile başvuru</div>
-              </div>
-            </div>
           </section>
 
-          <section className="rounded-[32px] border border-white/70 bg-white/92 p-8 shadow-[0_18px_44px_rgba(15,23,42,0.08)] backdrop-blur">
-            <div className="inline-flex rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-medium text-gray-600 shadow-sm">
-              Kayıt
-            </div>
-
-            <h2 className="mt-4 text-3xl font-semibold tracking-tight text-gray-900">
-              Yeni hesap oluştur
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-gray-600">
-              E-posta ve şifre bilgilerini girerek sisteme kayıt olabilirsin.
-            </p>
+          <AppCard className="rounded-[32px] p-8">
+            <AppHero
+              badge="Kayıt"
+              title="Yeni hesap oluştur"
+              description="E-posta ve şifre bilgilerini girerek sisteme kayıt olabilirsin."
+            />
 
             <form onSubmit={handleSubmit} className="mt-8 space-y-4">
               <label className="block space-y-1">
@@ -163,28 +123,19 @@ export default function RegisterPage() {
               </label>
 
               <div className="pt-2">
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className={`${primaryButtonClass} w-full`}
-                >
+                <AppButton type="submit" tone="primary" className="w-full" disabled={loading}>
                   {loading ? "Kayıt oluşturuluyor..." : "Kayıt ol"}
-                </button>
+                </AppButton>
               </div>
             </form>
 
             <div className="mt-6 flex flex-col gap-3 border-t border-gray-100 pt-6 sm:flex-row sm:items-center sm:justify-between">
-              <span className="text-sm text-gray-600">
-                Zaten hesabın var mı?
-              </span>
-
-              <Link href="/login" className={secondaryButtonClass}>
-                Giriş yap
-              </Link>
+              <span className="text-sm text-gray-600">Zaten hesabın var mı?</span>
+              <AppLinkButton href="/login">Giriş yap</AppLinkButton>
             </div>
-          </section>
+          </AppCard>
         </div>
       </div>
-    </main>
+    </AppPage>
   );
 }

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { OrganizationDto } from "@/lib/api";
+import { AppCard } from "@/components/ui";
 
 function formatUtcDate(value?: string | null) {
   if (!value) return "-";
@@ -37,7 +38,7 @@ export default function OrgsCard({
   organizations: OrganizationDto[];
 }) {
   return (
-    <section className="rounded-[30px] border border-white/70 bg-white/90 p-6 shadow-[0_12px_34px_rgba(15,23,42,0.07)] backdrop-blur">
+    <AppCard>
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-xl font-semibold tracking-tight text-gray-900">
@@ -95,9 +96,7 @@ export default function OrgsCard({
               </div>
 
               <div className="mt-5 flex items-center justify-between">
-                <span className="text-xs text-gray-500">
-                  Detay ve yönetim alanı
-                </span>
+                <span className="text-xs text-gray-500">Detay ve yönetim alanı</span>
 
                 <span className="text-sm font-medium text-gray-800 transition-transform duration-200 group-hover:translate-x-1">
                   İncele →
@@ -107,6 +106,6 @@ export default function OrgsCard({
           ))}
         </div>
       )}
-    </section>
+    </AppCard>
   );
 }
