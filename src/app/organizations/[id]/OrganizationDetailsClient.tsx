@@ -1,8 +1,15 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useToast } from "@/components/ToastProvider";
+import {
+  AppButton,
+  AppCard,
+  AppHero,
+  AppLinkButton,
+  AppPage,
+  AppSectionHeader,
+} from "@/components/ui";
 import {
   addOrganizationMember,
   deleteOrganizationMember,
@@ -185,12 +192,6 @@ function StatusPill({
     </span>
   );
 }
-
-const secondaryButtonClass =
-  "inline-flex items-center justify-center rounded-2xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-800 shadow-sm transition-all duration-200 hover:border-gray-500 hover:bg-gray-50 hover:shadow-md hover:-translate-y-0.5 active:translate-y-[1px] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60";
-
-const primaryButtonClass =
-  "inline-flex items-center justify-center rounded-2xl border border-black bg-black px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:border-gray-700 hover:bg-gray-900 hover:shadow-md hover:-translate-y-0.5 active:translate-y-[1px] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60";
 
 export default function OrganizationDetailsClient({ id }: { id: string }) {
   const { showToast } = useToast();
@@ -564,211 +565,112 @@ export default function OrganizationDetailsClient({ id }: { id: string }) {
   }
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,#f8fafc,#eef2f7)] px-4 py-8">
-      <div className="mx-auto max-w-5xl space-y-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <div className="inline-flex rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-medium text-gray-600 shadow-sm">
-              Organizasyon alanı
-            </div>
-            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-gray-900">
-              {heroTitle}
-            </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-600">
-              {heroSubtitle}
-            </p>
+    <AppPage>
+      <AppHero
+        badge="Organizasyon alanı"
+        title={heroTitle}
+        description={heroSubtitle}
+        right={<AppLinkButton href="/dashboard">Geri dön</AppLinkButton>}
+      />
+
+      <AppCard>
+        {loading ? <div className="mb-4 text-sm text-gray-600">Yükleniyor...</div> : null}
+
+        {pageError ? (
+          <div className="mb-4 rounded-3xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            {pageError}
           </div>
+        ) : null}
 
-          <Link href="/dashboard" className={secondaryButtonClass}>
-            Geri dön
-          </Link>
-        </div>
-
-        <section className="rounded-[30px] border border-white/70 bg-white/90 p-6 shadow-[0_12px_34px_rgba(15,23,42,0.07)] backdrop-blur">
-          {loading ? <div className="mb-4 text-sm text-gray-600">Yükleniyor...</div> : null}
-
-          {pageError ? (
-            <div className="mb-4 rounded-3xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-              {pageError}
-            </div>
-          ) : null}
-
-          <div className="mb-6 rounded-[28px] border border-gray-200 bg-gradient-to-r from-slate-50 via-white to-slate-50 p-5 shadow-sm">
-            <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-              <div className="space-y-4">
-                <div className="flex flex-wrap items-center gap-2">
-                  <StatusPill label="Aktif organizasyon" active={!!org?.isActive} tone="green" />
-                  <StatusPill label="Owner" active={isOwner} tone="yellow" />
-                  <StatusPill label="Assistant" active={isAssistant} tone="blue" />
-                  <StatusPill label="Member" active={isMember} tone="neutral" />
-                  <StatusPill label="SuperAdmin" active={isSuperAdmin} tone="purple" />
-                </div>
-
-                <div>
-                  <div className="text-sm text-gray-500">Erişim ve yönetim özeti</div>
-                  <div className="mt-1 text-lg font-semibold tracking-tight text-gray-900">
-                    {managementSummaryTitle}
-                  </div>
-                  <p className="mt-2 max-w-3xl text-sm leading-6 text-gray-600">
-                    {managementSummaryDescription}
-                  </p>
-                </div>
+        <div className="mb-6 rounded-[28px] border border-gray-200 bg-gradient-to-r from-slate-50 via-white to-slate-50 p-5 shadow-sm">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <StatusPill label="Aktif organizasyon" active={!!org?.isActive} tone="green" />
+                <StatusPill label="Owner" active={isOwner} tone="yellow" />
+                <StatusPill label="Assistant" active={isAssistant} tone="blue" />
+                <StatusPill label="Member" active={isMember} tone="neutral" />
+                <StatusPill label="SuperAdmin" active={isSuperAdmin} tone="purple" />
               </div>
 
-              {canManageOrganization ? (
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  <button
-                    type="button"
-                    onClick={handleToggleActive}
-                    disabled={actionLoading || !org}
-                    className={secondaryButtonClass}
-                  >
-                    {actionLoading
-                      ? "Güncelleniyor..."
-                      : org?.isActive
-                      ? "Organizasyonu pasife al"
-                      : "Organizasyonu aktif et"}
-                  </button>
-                </div>
-              ) : null}
-            </div>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <ReadonlyField label="Organization Id" value={id ?? ""} className="sm:col-span-2" mono />
-            <ReadonlyField label="Organizasyon adı" value={org?.name ?? ""} />
-            <ReadonlyField label="Vergi numarası" value={org?.taxNumber ?? ""} />
-            <ReadonlyField label="Şehir" value={org?.city ?? ""} />
-            <ReadonlyField label="İlçe" value={org?.district ?? ""} />
-            <ReadonlyField label="Açıklama" value={org?.description ?? ""} className="sm:col-span-2" />
-            <ReadonlyField label="Owner kullanıcı id" value={org?.ownerUserId ?? ""} mono />
-
-            <div className="space-y-1 sm:col-span-2">
-              <div className="text-sm text-gray-600">Katılım kodu</div>
-              <div className="flex flex-col gap-2 rounded-3xl border border-gray-300 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="break-all font-mono text-sm text-gray-900">
-                  {org?.joinCode ?? ""}
-                </div>
-
-                <div className="flex gap-2">
-                  <button type="button" onClick={handleCopyJoinCode} className={secondaryButtonClass}>
-                    Kodu kopyala
-                  </button>
-
-                  {canManageOrganization ? (
-                    <button
-                      type="button"
-                      onClick={handleRegenerateJoinCode}
-                      disabled={actionLoading}
-                      className={secondaryButtonClass}
-                    >
-                      Yeni kod üret
-                    </button>
-                  ) : null}
-                </div>
-              </div>
-            </div>
-
-            <ReadonlyField label="Oluşturulma tarihi" value={formatUtcDate(org?.createdAtUtc)} mono />
-          </div>
-        </section>
-
-        {canManageOrganization ? (
-          <section className="rounded-[30px] border border-white/70 bg-white/90 p-6 shadow-[0_12px_34px_rgba(15,23,42,0.07)] backdrop-blur">
-            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h2 className="text-xl font-semibold tracking-tight text-gray-900">
-                  Bekleyen katılım talepleri
-                </h2>
-                <p className="mt-1 text-sm text-gray-600">
-                  Katılım kodu ile gelen başvuruları onaylayabilir veya reddedebilirsin.
+                <div className="text-sm text-gray-500">Erişim ve yönetim özeti</div>
+                <div className="mt-1 text-lg font-semibold tracking-tight text-gray-900">
+                  {managementSummaryTitle}
+                </div>
+                <p className="mt-2 max-w-3xl text-sm leading-6 text-gray-600">
+                  {managementSummaryDescription}
                 </p>
               </div>
+            </div>
 
+            {canManageOrganization ? (
+              <AppButton onClick={handleToggleActive} disabled={actionLoading || !org}>
+                {actionLoading
+                  ? "Güncelleniyor..."
+                  : org?.isActive
+                  ? "Organizasyonu pasife al"
+                  : "Organizasyonu aktif et"}
+              </AppButton>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <ReadonlyField label="Organization Id" value={id ?? ""} className="sm:col-span-2" mono />
+          <ReadonlyField label="Organizasyon adı" value={org?.name ?? ""} />
+          <ReadonlyField label="Vergi numarası" value={org?.taxNumber ?? ""} />
+          <ReadonlyField label="Şehir" value={org?.city ?? ""} />
+          <ReadonlyField label="İlçe" value={org?.district ?? ""} />
+          <ReadonlyField label="Açıklama" value={org?.description ?? ""} className="sm:col-span-2" />
+          <ReadonlyField label="Owner kullanıcı id" value={org?.ownerUserId ?? ""} mono />
+
+          <div className="space-y-1 sm:col-span-2">
+            <div className="text-sm text-gray-600">Katılım kodu</div>
+            <div className="flex flex-col gap-2 rounded-3xl border border-gray-300 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="break-all font-mono text-sm text-gray-900">
+                {org?.joinCode ?? ""}
+              </div>
+
+              <div className="flex gap-2">
+                <AppButton onClick={handleCopyJoinCode}>Kodu kopyala</AppButton>
+
+                {canManageOrganization ? (
+                  <AppButton onClick={handleRegenerateJoinCode} disabled={actionLoading}>
+                    Yeni kod üret
+                  </AppButton>
+                ) : null}
+              </div>
+            </div>
+          </div>
+
+          <ReadonlyField label="Oluşturulma tarihi" value={formatUtcDate(org?.createdAtUtc)} mono />
+        </div>
+      </AppCard>
+
+      {canManageOrganization ? (
+        <AppCard>
+          <AppSectionHeader
+            title="Bekleyen katılım talepleri"
+            description="Katılım kodu ile gelen başvuruları onaylayabilir veya reddedebilirsin."
+            right={
               <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-800">
                 Bekleyen talep: {pendingJoinRequests.length}
               </div>
+            }
+          />
+
+          {joinRequestsLoading ? (
+            <div className="text-sm text-gray-600">Talepler yükleniyor...</div>
+          ) : pendingJoinRequests.length === 0 ? (
+            <div className="rounded-3xl border border-dashed border-gray-300 bg-gray-50/70 p-5 text-sm text-gray-600">
+              Bekleyen katılım talebi bulunmuyor.
             </div>
-
-            {joinRequestsLoading ? (
-              <div className="text-sm text-gray-600">Talepler yükleniyor...</div>
-            ) : pendingJoinRequests.length === 0 ? (
-              <div className="rounded-3xl border border-dashed border-gray-300 bg-gray-50/70 p-5 text-sm text-gray-600">
-                Bekleyen katılım talebi bulunmuyor.
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {pendingJoinRequests.map((request) => (
-                  <div key={request.id} className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
-                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                      <div className="flex items-start gap-3">
-                        <UserInitialAvatar email={request.userEmail} />
-                        <div>
-                          <div className="text-sm font-semibold text-gray-900">{request.userEmail}</div>
-                          <div className="mt-1 flex flex-wrap items-center gap-2">
-                            <JoinRequestStatusBadge status={request.status} />
-                            <span className="text-xs text-gray-500">
-                              Talep tarihi: {formatUtcDate(request.createdAtUtc)}
-                            </span>
-                          </div>
-                          <div className="mt-2 text-xs text-gray-500">UserId: {request.userId}</div>
-                        </div>
-                      </div>
-
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          onClick={() => handleReviewJoinRequest(request.id, true)}
-                          disabled={actionLoading}
-                          className="inline-flex items-center justify-center rounded-2xl border border-green-300 bg-green-50 px-3 py-2 text-xs font-medium text-green-700 shadow-sm transition-all duration-200 hover:border-green-400 hover:bg-green-100 hover:shadow-md hover:-translate-y-0.5 active:translate-y-[1px] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          Başvuruyu onayla
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => handleReviewJoinRequest(request.id, false)}
-                          disabled={actionLoading}
-                          className="inline-flex items-center justify-center rounded-2xl border border-red-300 bg-red-50 px-3 py-2 text-xs font-medium text-red-700 shadow-sm transition-all duration-200 hover:border-red-400 hover:bg-red-100 hover:shadow-md hover:-translate-y-0.5 active:translate-y-[1px] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          Başvuruyu reddet
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-        ) : null}
-
-        {canManageOrganization ? (
-          <section className="rounded-[30px] border border-white/70 bg-white/90 p-6 shadow-[0_12px_34px_rgba(15,23,42,0.07)] backdrop-blur">
-            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h2 className="text-xl font-semibold tracking-tight text-gray-900">
-                  Başvuru geçmişi
-                </h2>
-                <p className="mt-1 text-sm text-gray-600">
-                  Sonuçlanmış başvuruları geçmiş olarak burada görebilirsin.
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-2 text-sm font-medium text-gray-800">
-                Toplam geçmiş kayıt: {reviewedJoinRequests.length}
-              </div>
-            </div>
-
-            {joinRequestsLoading ? (
-              <div className="text-sm text-gray-600">Geçmiş yükleniyor...</div>
-            ) : reviewedJoinRequests.length === 0 ? (
-              <div className="rounded-3xl border border-dashed border-gray-300 bg-gray-50/70 p-5 text-sm text-gray-600">
-                Sonuçlanmış başvuru bulunmuyor.
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {reviewedJoinRequests.map((request) => (
-                  <div key={request.id} className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
+          ) : (
+            <div className="space-y-3">
+              {pendingJoinRequests.map((request) => (
+                <div key={request.id} className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                     <div className="flex items-start gap-3">
                       <UserInitialAvatar email={request.userEmail} />
                       <div>
@@ -776,137 +678,189 @@ export default function OrganizationDetailsClient({ id }: { id: string }) {
                         <div className="mt-1 flex flex-wrap items-center gap-2">
                           <JoinRequestStatusBadge status={request.status} />
                           <span className="text-xs text-gray-500">
-                            Başvuru: {formatUtcDate(request.createdAtUtc)}
+                            Talep tarihi: {formatUtcDate(request.createdAtUtc)}
                           </span>
-                          {request.reviewedAtUtc ? (
-                            <span className="text-xs text-gray-500">
-                              Sonuçlanma: {formatUtcDate(request.reviewedAtUtc)}
-                            </span>
-                          ) : null}
                         </div>
                         <div className="mt-2 text-xs text-gray-500">UserId: {request.userId}</div>
                       </div>
                     </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      <AppButton
+                        tone="success"
+                        size="sm"
+                        onClick={() => handleReviewJoinRequest(request.id, true)}
+                        disabled={actionLoading}
+                      >
+                        Başvuruyu onayla
+                      </AppButton>
+
+                      <AppButton
+                        tone="danger"
+                        size="sm"
+                        onClick={() => handleReviewJoinRequest(request.id, false)}
+                        disabled={actionLoading}
+                      >
+                        Başvuruyu reddet
+                      </AppButton>
+                    </div>
                   </div>
-                ))}
+                </div>
+              ))}
+            </div>
+          )}
+        </AppCard>
+      ) : null}
+
+      {canManageOrganization ? (
+        <AppCard>
+          <AppSectionHeader
+            title="Başvuru geçmişi"
+            description="Sonuçlanmış başvuruları geçmiş olarak burada görebilirsin."
+            right={
+              <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-2 text-sm font-medium text-gray-800">
+                Toplam geçmiş kayıt: {reviewedJoinRequests.length}
               </div>
-            )}
-          </section>
-        ) : null}
+            }
+          />
 
-        <section className="rounded-[30px] border border-white/70 bg-white/90 p-6 shadow-[0_12px_34px_rgba(15,23,42,0.07)] backdrop-blur">
-          <div className="mb-4">
-            <h2 className="text-xl font-semibold tracking-tight text-gray-900">
-              Organizasyon üyeleri
-            </h2>
-            <p className="mt-1 text-sm text-gray-600">
-              Organizasyona kayıtlı kullanıcıları görüntüleyebilir ve yetkiliysen yönetebilirsin.
-            </p>
-          </div>
-
-          {canManageOrganization ? (
-            <form
-              onSubmit={handleAddMember}
-              className="mb-6 grid gap-3 rounded-3xl border border-gray-200 bg-gray-50/80 p-4 sm:grid-cols-[1fr_180px_160px]"
-            >
-              <input
-                type="email"
-                value={memberEmail}
-                onChange={(e) => setMemberEmail(e.target.value)}
-                placeholder="kullanici@email.com"
-                className="rounded-3xl border border-gray-300 bg-white px-4 py-3 text-gray-900 outline-none transition-all duration-200 focus:border-gray-500 focus:ring-4 focus:ring-gray-100"
-              />
-
-              <select
-                value={memberRole}
-                onChange={(e) => setMemberRole(e.target.value as "Member" | "Assistant")}
-                className="rounded-3xl border border-gray-300 bg-white px-4 py-3 text-gray-900 outline-none transition-all duration-200 focus:border-gray-500 focus:ring-4 focus:ring-gray-100"
-              >
-                <option value="Member">Member</option>
-                <option value="Assistant">Assistant</option>
-              </select>
-
-              <button type="submit" disabled={actionLoading} className={primaryButtonClass}>
-                Üye ekle
-              </button>
-            </form>
-          ) : null}
-
-          {membersLoading ? (
-            <div className="text-sm text-gray-600">Üyeler yükleniyor...</div>
-          ) : members.length === 0 ? (
+          {joinRequestsLoading ? (
+            <div className="text-sm text-gray-600">Geçmiş yükleniyor...</div>
+          ) : reviewedJoinRequests.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-gray-300 bg-gray-50/70 p-5 text-sm text-gray-600">
-              Henüz üye bulunmuyor.
+              Sonuçlanmış başvuru bulunmuyor.
             </div>
           ) : (
             <div className="space-y-3">
-              {members.map((member) => {
-                const isMemberOwner = member.role === "Owner";
-
-                return (
-                  <div key={member.id} className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
-                    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">{member.email}</div>
-                        <div className="mt-1 text-xs text-gray-500">UserId: {member.userId}</div>
-                      </div>
-
-                      <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-                        <div className="flex items-center gap-2">
-                          <MemberRoleBadge role={member.role} />
-                          <span className="rounded-full border border-gray-200 bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700">
-                            {member.isActive ? "Aktif" : "Pasif"}
+              {reviewedJoinRequests.map((request) => (
+                <div key={request.id} className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
+                  <div className="flex items-start gap-3">
+                    <UserInitialAvatar email={request.userEmail} />
+                    <div>
+                      <div className="text-sm font-semibold text-gray-900">{request.userEmail}</div>
+                      <div className="mt-1 flex flex-wrap items-center gap-2">
+                        <JoinRequestStatusBadge status={request.status} />
+                        <span className="text-xs text-gray-500">
+                          Başvuru: {formatUtcDate(request.createdAtUtc)}
+                        </span>
+                        {request.reviewedAtUtc ? (
+                          <span className="text-xs text-gray-500">
+                            Sonuçlanma: {formatUtcDate(request.reviewedAtUtc)}
                           </span>
-                        </div>
-
-                        {canManageOrganization && !isMemberOwner ? (
-                          <div className="flex flex-wrap gap-2">
-                            <button
-                              type="button"
-                              onClick={() => handleToggleRole(member)}
-                              disabled={actionLoading}
-                              className={secondaryButtonClass}
-                            >
-                              {member.role === "Assistant" ? "Member yap" : "Assistant yap"}
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => handleToggleMemberActive(member)}
-                              disabled={actionLoading}
-                              className={secondaryButtonClass}
-                            >
-                              {member.isActive ? "Pasif et" : "Aktif et"}
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => handleTransferOwnership(member)}
-                              disabled={actionLoading}
-                              className="inline-flex items-center justify-center rounded-2xl border border-yellow-300 bg-yellow-50 px-4 py-2.5 text-sm font-medium text-yellow-700 shadow-sm transition-all duration-200 hover:border-yellow-400 hover:bg-yellow-100 hover:shadow-md hover:-translate-y-0.5 active:translate-y-[1px] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
-                            >
-                              Owner yap
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteMember(member)}
-                              disabled={actionLoading}
-                              className="inline-flex items-center justify-center rounded-2xl border border-red-300 bg-red-50 px-4 py-2.5 text-sm font-medium text-red-700 shadow-sm transition-all duration-200 hover:border-red-400 hover:bg-red-100 hover:shadow-md hover:-translate-y-0.5 active:translate-y-[1px] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
-                            >
-                              Çıkar
-                            </button>
-                          </div>
                         ) : null}
                       </div>
+                      <div className="mt-2 text-xs text-gray-500">UserId: {request.userId}</div>
                     </div>
                   </div>
-                );
-              })}
+                </div>
+              ))}
             </div>
           )}
-        </section>
-      </div>
-    </main>
+        </AppCard>
+      ) : null}
+
+      <AppCard>
+        <AppSectionHeader
+          title="Organizasyon üyeleri"
+          description="Organizasyona kayıtlı kullanıcıları görüntüleyebilir ve yetkiliysen yönetebilirsin."
+        />
+
+        {canManageOrganization ? (
+          <form
+            onSubmit={handleAddMember}
+            className="mb-6 grid gap-3 rounded-3xl border border-gray-200 bg-gray-50/80 p-4 sm:grid-cols-[1fr_180px_160px]"
+          >
+            <input
+              type="email"
+              value={memberEmail}
+              onChange={(e) => setMemberEmail(e.target.value)}
+              placeholder="kullanici@email.com"
+              className="rounded-3xl border border-gray-300 bg-white px-4 py-3 text-gray-900 outline-none transition-all duration-200 focus:border-gray-500 focus:ring-4 focus:ring-gray-100"
+            />
+
+            <select
+              value={memberRole}
+              onChange={(e) => setMemberRole(e.target.value as "Member" | "Assistant")}
+              className="rounded-3xl border border-gray-300 bg-white px-4 py-3 text-gray-900 outline-none transition-all duration-200 focus:border-gray-500 focus:ring-4 focus:ring-gray-100"
+            >
+              <option value="Member">Member</option>
+              <option value="Assistant">Assistant</option>
+            </select>
+
+            <AppButton type="submit" tone="primary" disabled={actionLoading}>
+              Üye ekle
+            </AppButton>
+          </form>
+        ) : null}
+
+        {membersLoading ? (
+          <div className="text-sm text-gray-600">Üyeler yükleniyor...</div>
+        ) : members.length === 0 ? (
+          <div className="rounded-3xl border border-dashed border-gray-300 bg-gray-50/70 p-5 text-sm text-gray-600">
+            Henüz üye bulunmuyor.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {members.map((member) => {
+              const isMemberOwner = member.role === "Owner";
+
+              return (
+                <div key={member.id} className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    <div>
+                      <div className="text-sm font-medium text-gray-900">{member.email}</div>
+                      <div className="mt-1 text-xs text-gray-500">UserId: {member.userId}</div>
+                    </div>
+
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+                      <div className="flex items-center gap-2">
+                        <MemberRoleBadge role={member.role} />
+                        <span className="rounded-full border border-gray-200 bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700">
+                          {member.isActive ? "Aktif" : "Pasif"}
+                        </span>
+                      </div>
+
+                      {canManageOrganization && !isMemberOwner ? (
+                        <div className="flex flex-wrap gap-2">
+                          <AppButton
+                            onClick={() => handleToggleRole(member)}
+                            disabled={actionLoading}
+                          >
+                            {member.role === "Assistant" ? "Member yap" : "Assistant yap"}
+                          </AppButton>
+
+                          <AppButton
+                            onClick={() => handleToggleMemberActive(member)}
+                            disabled={actionLoading}
+                          >
+                            {member.isActive ? "Pasif et" : "Aktif et"}
+                          </AppButton>
+
+                          <AppButton
+                            tone="warning"
+                            onClick={() => handleTransferOwnership(member)}
+                            disabled={actionLoading}
+                          >
+                            Owner yap
+                          </AppButton>
+
+                          <AppButton
+                            tone="danger"
+                            onClick={() => handleDeleteMember(member)}
+                            disabled={actionLoading}
+                          >
+                            Çıkar
+                          </AppButton>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </AppCard>
+    </AppPage>
   );
 }
