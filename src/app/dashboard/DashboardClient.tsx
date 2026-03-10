@@ -13,8 +13,41 @@ import {
   type OrganizationDto,
   type OrganizationJoinRequestDto,
 } from "@/lib/api";
-import { AppButton, AppCard, AppHero, AppLinkButton, AppPage } from "@/components/ui";
+import { AppCard, AppPage } from "@/components/ui";
 import { JoinRequestSummaryCard } from "@/components/join-ui";
+import {
+  AppNavbar,
+  AppNavbarDashboardActions,
+} from "@/components/app-navbar";
+
+function SummaryStat({
+  label,
+  value,
+  hint,
+  tone = "default",
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  tone?: "default" | "green" | "slate";
+}) {
+  const toneClass =
+    tone === "green"
+      ? "border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-emerald-50/60"
+      : tone === "slate"
+      ? "border-slate-200 bg-gradient-to-br from-slate-100 via-white to-slate-50"
+      : "border-slate-200 bg-gradient-to-br from-slate-50 via-white to-blue-50/30";
+
+  return (
+    <div className={`rounded-[28px] border p-5 shadow-sm ${toneClass}`}>
+      <div className="text-sm font-medium text-slate-600">{label}</div>
+      <div className="mt-2 text-3xl font-semibold tracking-tight text-slate-900">
+        {value}
+      </div>
+      {hint ? <div className="mt-2 text-xs text-slate-500">{hint}</div> : null}
+    </div>
+  );
+}
 
 export default function DashboardClient() {
   const router = useRouter();
@@ -96,57 +129,59 @@ export default function DashboardClient() {
     [organizations]
   );
 
+  const pendingJoinRequestCount = useMemo(
+    () => joinRequests.filter((x) => x.status === "Pending").length,
+    [joinRequests]
+  );
+
   if (loading) {
     return (
       <AppPage>
-        <div className="text-sm text-gray-600">Dashboard yükleniyor...</div>
+        <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5 text-sm text-slate-600">
+          Dashboard yükleniyor...
+        </div>
       </AppPage>
     );
   }
 
   return (
     <AppPage>
-      <AppCard>
-        <div className="flex flex-col gap-5">
-          <AppHero
-            badge="OrgManager"
-            title="Dashboard"
-            description={`Hoş geldin${me?.email ? `, ${me.email}` : ""}.`}
-            right={
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <AppLinkButton href="/join">Katılım kodu ile başvur</AppLinkButton>
-                <AppLinkButton href="/organizations/new" tone="primary">
-                  Yeni organizasyon
-                </AppLinkButton>
-                <AppButton onClick={handleLogout} disabled={logoutLoading}>
-                  {logoutLoading ? "Çıkış yapılıyor..." : "Çıkış yap"}
-                </AppButton>
-              </div>
-            }
+      <AppNavbar
+        email={me?.email}
+        title="Dashboard"
+        subtitle="Organizasyonlarını, başvurularını ve genel durumunu buradan takip edebilirsin."
+        actions={
+          <AppNavbarDashboardActions
+            onLogout={handleLogout}
+            logoutLoading={logoutLoading}
           />
+        }
+      />
 
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-3xl border border-gray-200 bg-gradient-to-br from-gray-50 to-white p-5">
-              <div className="text-sm text-gray-600">Toplam organizasyon</div>
-              <div className="mt-2 text-3xl font-semibold tracking-tight text-gray-900">
-                {organizations.length}
-              </div>
-            </div>
-
-            <div className="rounded-3xl border border-green-200/80 bg-gradient-to-br from-green-50 to-white p-5">
-              <div className="text-sm text-green-700">Aktif</div>
-              <div className="mt-2 text-3xl font-semibold tracking-tight text-green-800">
-                {activeCount}
-              </div>
-            </div>
-
-            <div className="rounded-3xl border border-gray-200 bg-gradient-to-br from-gray-100 to-white p-5">
-              <div className="text-sm text-gray-700">Pasif</div>
-              <div className="mt-2 text-3xl font-semibold tracking-tight text-gray-800">
-                {passiveCount}
-              </div>
-            </div>
-          </div>
+      <AppCard>
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <SummaryStat
+            label="Toplam organizasyon"
+            value={String(organizations.length)}
+            hint="Dahil olduğun toplam organizasyon sayısı"
+          />
+          <SummaryStat
+            label="Aktif organizasyon"
+            value={String(activeCount)}
+            hint="Şu an aktif durumda olan organizasyonlar"
+            tone="green"
+          />
+          <SummaryStat
+            label="Pasif organizasyon"
+            value={String(passiveCount)}
+            hint="Pasif durumda görünen organizasyonlar"
+            tone="slate"
+          />
+          <SummaryStat
+            label="Bekleyen başvuru"
+            value={String(pendingJoinRequestCount)}
+            hint="Sonuç bekleyen katılım taleplerin"
+          />
         </div>
       </AppCard>
 
@@ -157,7 +192,6 @@ export default function DashboardClient() {
       ) : null}
 
       <JoinRequestSummaryCard requests={joinRequests} />
-
       <OrgsCard organizations={organizations} />
     </AppPage>
   );

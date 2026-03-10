@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useToast } from "@/components/ToastProvider";
 import { AppButton, AppCard } from "@/components/ui";
+import { ReadonlyField } from "@/components/detail-ui";
 import { StatusPill } from "@/components/badges";
 import {
   getOrganizationMemberPaymentStatuses,
@@ -26,17 +27,6 @@ function formatUtcDate(value?: string | null) {
   }).format(date);
 }
 
-function formatDateOnly(value?: string | null) {
-  if (!value) return "-";
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-
-  return new Intl.DateTimeFormat("tr-TR", {
-    dateStyle: "medium",
-  }).format(date);
-}
-
 function toInputDate(value?: string | null) {
   if (!value) return "";
 
@@ -46,54 +36,80 @@ function toInputDate(value?: string | null) {
   return date.toISOString().slice(0, 10);
 }
 
-function formatAmount(amount?: number | null, currency?: string | null) {
+function formatMoney(amount?: number | null, currency?: string | null) {
   if (amount === null || amount === undefined) return "-";
-  return `${amount} ${currency ?? ""}`.trim();
+
+  const safeCurrency = currency?.trim() || "TRY";
+
+  try {
+    return new Intl.NumberFormat("tr-TR", {
+      style: "currency",
+      currency: safeCurrency,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  } catch {
+    return `${amount} ${safeCurrency}`;
+  }
 }
 
-function getPeriodLabel(period?: PaymentPeriod | string | null) {
-  if (!period) return "-";
-  return period === "Monthly" ? "Aylık" : "Yıllık";
+function getPeriodLabel(period: PaymentPeriod) {
+  return period === "Yearly" ? "Yıllık" : "Aylık";
 }
 
-function getMemberStatusTone(member: OrganizationMemberPaymentStatusDto) {
-  return member.isOverdue ? "yellow" : "neutral";
+function PaymentInfoBox({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white/90 px-4 py-3">
+      <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+        {label}
+      </div>
+      <div className="mt-1 break-words text-sm font-semibold text-slate-900">
+        {value}
+      </div>
+    </div>
+  );
 }
 
-function getMemberStatusLabel(member: OrganizationMemberPaymentStatusDto) {
-  return member.isOverdue ? "Gecikmiş" : "Güncel";
-}
-
-function canMarkPaid(member: OrganizationMemberPaymentStatusDto) {
-  return member.isOverdue;
-}
+type Props = {
+  organizationId: string;
+  canManagePayments: boolean;
+};
 
 const CURRENCY_OPTIONS = [
   "TRY",
   "USD",
   "EUR",
   "GBP",
-  "CHF",
-  "JPY",
-  "CAD",
-  "AUD",
-  "SAR",
   "AED",
+  "SAR",
   "QAR",
   "KWD",
   "BHD",
-  "OMR",
-  "NOK",
-  "SEK",
-  "DKK",
-  "RUB",
+  "JPY",
   "CNY",
-  "INR",
-  "PKR",
+  "RUB",
+  "CHF",
+  "CAD",
+  "AUD",
+  "SEK",
+  "NOK",
+  "DKK",
+  "PLN",
+  "CZK",
+  "HUF",
+  "RON",
+  "BGN",
   "AZN",
   "GEL",
   "KZT",
   "UZS",
+  "INR",
+  "PKR",
   "EGP",
   "ZAR",
   "BRL",
@@ -104,52 +120,9 @@ const CURRENCY_OPTIONS = [
   "MYR",
   "THB",
   "IDR",
-  "NZD",
+  "PHP",
+  "VND",
 ];
-
-type Props = {
-  organizationId: string;
-  canManagePayments: boolean;
-};
-
-function SummaryStat({
-  label,
-  value,
-  hint,
-}: {
-  label: string;
-  value: string;
-  hint?: string;
-}) {
-  return (
-    <div className="rounded-[24px] border border-gray-200 bg-slate-50 p-4">
-      <div className="text-xs font-medium uppercase tracking-wide text-gray-500">
-        {label}
-      </div>
-      <div className="mt-2 text-base font-semibold text-gray-900">{value}</div>
-      {hint ? <div className="mt-1 text-xs text-gray-500">{hint}</div> : null}
-    </div>
-  );
-}
-
-function MemberInfoBlock({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3">
-      <div className="text-xs font-medium uppercase tracking-wide text-gray-500">
-        {label}
-      </div>
-      <div className="mt-2 text-sm font-semibold text-gray-900 break-words">
-        {value}
-      </div>
-    </div>
-  );
-}
 
 export default function OrganizationPaymentsSection({
   organizationId,
@@ -192,7 +165,7 @@ export default function OrganizationPaymentsSection({
           ? ""
           : String(settingsData.amount)
       );
-      setCurrency(settingsData.currency?.trim() ? settingsData.currency : "TRY");
+      setCurrency(settingsData.currency?.trim() || "TRY");
       setStartDate(toInputDate(settingsData.startDateUtc));
     } catch (e: any) {
       showToast({
@@ -213,89 +186,39 @@ export default function OrganizationPaymentsSection({
     [members]
   );
 
-  const currentCount = useMemo(
-    () => members.filter((x) => !x.isOverdue).length,
-    [members]
-  );
-
-  const activeMemberCount = useMemo(
-    () => members.filter((x) => x.isMemberActive).length,
-    [members]
-  );
-
-  const currentAmountPreview = useMemo(() => {
-    if (!isEnabled) return "Aidat sistemi kapalı";
-    if (!amount.trim()) return `- ${currency}`;
-    return `${amount} ${currency}`.trim();
-  }, [amount, currency, isEnabled]);
-
   async function handleSave() {
-    if (!canManagePayments) return;
-
-    const normalizedAmountText = amount.trim().replace(",", ".");
-    const parsedAmount =
-      normalizedAmountText === "" ? null : Number(normalizedAmountText);
-
-    const trimmedStartDate = startDate.trim();
-
-    if (isEnabled) {
-      if (amount.trim() === "") {
-        showToast({
-          message: "Aidat sistemi açıkken tutar zorunludur.",
-          type: "error",
-        });
-        return;
-      }
-
-      if (parsedAmount === null || Number.isNaN(parsedAmount)) {
-        showToast({
-          message: "Tutar geçerli bir sayı olmalıdır.",
-          type: "error",
-        });
-        return;
-      }
-
-      if (parsedAmount < 0) {
-        showToast({
-          message: "Tutar 0 veya daha büyük olmalıdır.",
-          type: "error",
-        });
-        return;
-      }
-
-      if (!currency.trim()) {
-        showToast({
-          message: "Aidat sistemi açıkken para birimi zorunludur.",
-          type: "error",
-        });
-        return;
-      }
-
-      if (!trimmedStartDate) {
-        showToast({
-          message: "Aidat sistemi açıkken başlangıç tarihi zorunludur.",
-          type: "error",
-        });
-        return;
-      }
-    }
-
     setSaving(true);
 
     try {
-      const requestBody = {
-        isEnabled,
-        period,
-        amount: isEnabled ? parsedAmount : null,
-        currency: isEnabled ? currency : null,
-        startDateUtc: isEnabled
-          ? new Date(`${trimmedStartDate}T00:00:00`).toISOString()
-          : null,
-      };
+      const parsedAmount =
+        amount.trim() === "" ? null : Number(amount.trim().replace(",", "."));
+
+      if (parsedAmount !== null && Number.isNaN(parsedAmount)) {
+        showToast({ message: "Tutar geçerli bir sayı olmalıdır.", type: "error" });
+        return;
+      }
+
+      const payload = isEnabled
+        ? {
+            isEnabled: true,
+            period,
+            amount: parsedAmount,
+            currency: currency.trim() || "TRY",
+            startDateUtc: startDate
+              ? new Date(`${startDate}T00:00:00Z`).toISOString()
+              : null,
+          }
+        : {
+            isEnabled: false,
+            period,
+            amount: null,
+            currency: "TRY",
+            startDateUtc: null,
+          };
 
       const updated = await updateOrganizationPaymentSettings(
         organizationId,
-        requestBody
+        payload
       );
 
       setSettings(updated);
@@ -317,8 +240,6 @@ export default function OrganizationPaymentsSection({
   }
 
   async function handleMarkPaid(member: OrganizationMemberPaymentStatusDto) {
-    if (!canMarkPaid(member)) return;
-
     setMarkingMemberId(member.organizationMemberId);
 
     try {
@@ -344,23 +265,22 @@ export default function OrganizationPaymentsSection({
 
   return (
     <AppCard>
-      <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+      <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <div className="text-sm text-gray-500">Aidat / ödeme yönetimi</div>
-          <div className="mt-1 text-xl font-semibold tracking-tight text-gray-900">
+          <div className="text-sm text-slate-500">Aidat / ödeme yönetimi</div>
+          <div className="mt-1 text-xl font-semibold tracking-tight text-slate-900">
             Aidat ayarları ve üye ödeme durumu
           </div>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-gray-600">
-            Organizasyonun aidat sistemini açabilir veya kapatabilir, periyot ve
-            tutar belirleyebilir, üyelerin ödeme durumlarını buradan takip
-            edebilirsin.
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+            Her üye için aidat durumu, ödenecek tutar, sonraki vade ve işlem
+            durumu burada görüntülenir.
           </p>
         </div>
 
         <div className="flex flex-wrap gap-2">
           <StatusPill
-            label={isEnabled ? "Aidat sistemi açık" : "Aidat sistemi kapalı"}
-            active={isEnabled}
+            label={settings?.isEnabled ? "Takip aktif" : "Takip kapalı"}
+            active={!!settings?.isEnabled}
             tone="green"
           />
           <StatusPill
@@ -377,108 +297,49 @@ export default function OrganizationPaymentsSection({
       </div>
 
       {loading ? (
-        <div className="mb-4 text-sm text-gray-600">Ödeme bilgileri yükleniyor...</div>
+        <div className="mb-4 text-sm text-slate-600">
+          Ödeme bilgileri yükleniyor...
+        </div>
       ) : null}
 
-      <div className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-        <SummaryStat
-          label="Aidat sistemi"
-          value={isEnabled ? "Açık" : "Kapalı"}
-          hint={isEnabled ? "Aidat takibi aktif" : "Organizasyon aidat almıyor"}
-        />
-        <SummaryStat
-          label="Periyot"
-          value={getPeriodLabel(period)}
-          hint="Aylık / yıllık tahsilat tipi"
-        />
-        <SummaryStat
-          label="Aidat tutarı"
-          value={currentAmountPreview}
-          hint="Organizasyon bazlı sabit tutar"
-        />
-        <SummaryStat
-          label="Başlangıç tarihi"
-          value={isEnabled ? formatDateOnly(startDate || settings?.startDateUtc) : "-"}
-          hint="İlk ödeme takibi başlangıcı"
-        />
-        <SummaryStat
-          label="Aidat ayarları son güncelleme"
-          value={formatUtcDate(settings?.updatedAtUtc)}
-          hint="Settings kaydının son değişim zamanı"
-        />
-      </div>
-
-      <div className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <SummaryStat
-          label="Toplam üye"
-          value={String(members.length)}
-          hint="Ödeme takibindeki üyeler"
-        />
-        <SummaryStat
-          label="Aktif üye"
-          value={String(activeMemberCount)}
-          hint="Üyeliği aktif olanlar"
-        />
-        <SummaryStat
-          label="Güncel ödeme"
-          value={String(currentCount)}
-          hint="Gecikmesi olmayan üyeler"
-        />
-        <SummaryStat
-          label="Gecikmiş ödeme"
-          value={String(overdueCount)}
-          hint="Ödeme günü geçmiş üyeler"
-        />
-      </div>
-
-      <div className="grid gap-6 2xl:grid-cols-[440px_minmax(0,1fr)]">
-        <div className="rounded-[28px] border border-gray-200 bg-gradient-to-r from-slate-50 via-white to-slate-50 p-5 shadow-sm">
+      <div className="space-y-6">
+        <div className="rounded-[28px] border border-slate-200 bg-gradient-to-r from-slate-50 via-white to-slate-50 p-5 shadow-sm">
           <div className="mb-5">
-            <div className="text-sm text-gray-500">Aidat ayarları</div>
-            <div className="mt-1 text-lg font-semibold tracking-tight text-gray-900">
+            <div className="text-sm text-slate-500">Aidat ayarları</div>
+            <div className="mt-1 text-lg font-semibold tracking-tight text-slate-900">
               Takip yapılandırması
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2 sm:col-span-2">
-              <div className="text-sm text-gray-600">Aidat sistemi aktif mi?</div>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="space-y-2 sm:col-span-2 xl:col-span-4">
+              <div className="text-sm text-slate-600">Aidat sistemi aktif mi?</div>
               <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
+                <AppButton
                   onClick={() => setIsEnabled(true)}
                   disabled={!canManagePayments || saving}
-                  className={`rounded-3xl px-5 py-3 text-sm font-medium transition ${
-                    isEnabled
-                      ? "border border-slate-900 bg-slate-900 text-white"
-                      : "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-                  } disabled:cursor-not-allowed disabled:opacity-60`}
+                  tone={isEnabled ? "primary" : "secondary"}
                 >
                   Açık
-                </button>
+                </AppButton>
 
-                <button
-                  type="button"
+                <AppButton
                   onClick={() => setIsEnabled(false)}
                   disabled={!canManagePayments || saving}
-                  className={`rounded-3xl px-5 py-3 text-sm font-medium transition ${
-                    !isEnabled
-                      ? "border border-slate-900 bg-slate-900 text-white"
-                      : "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-                  } disabled:cursor-not-allowed disabled:opacity-60`}
+                  tone={!isEnabled ? "primary" : "secondary"}
                 >
                   Kapalı
-                </button>
+                </AppButton>
               </div>
             </div>
 
             <div className="space-y-2">
-              <div className="text-sm text-gray-600">Ödeme periyodu</div>
+              <div className="text-sm text-slate-600">Ödeme periyodu</div>
               <select
                 value={period}
                 onChange={(e) => setPeriod(e.target.value as PaymentPeriod)}
                 disabled={!canManagePayments || saving}
-                className="w-full rounded-3xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-gray-900 disabled:cursor-not-allowed disabled:bg-gray-100"
+                className="w-full rounded-3xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-900 disabled:cursor-not-allowed disabled:bg-slate-100"
               >
                 <option value="Monthly">Monthly</option>
                 <option value="Yearly">Yearly</option>
@@ -486,48 +347,57 @@ export default function OrganizationPaymentsSection({
             </div>
 
             <div className="space-y-2">
-              <div className="text-sm text-gray-600">Tutar</div>
+              <div className="text-sm text-slate-600">Tutar</div>
               <input
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 disabled={!canManagePayments || saving || !isEnabled}
                 placeholder="Örn: 250"
-                className="w-full rounded-3xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-gray-900 disabled:cursor-not-allowed disabled:bg-gray-100"
+                className="w-full rounded-3xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-900 disabled:cursor-not-allowed disabled:bg-slate-100"
               />
             </div>
 
             <div className="space-y-2">
-              <div className="text-sm text-gray-600">Para birimi</div>
+              <div className="text-sm text-slate-600">Para birimi</div>
               <select
                 value={currency}
                 onChange={(e) => setCurrency(e.target.value)}
                 disabled={!canManagePayments || saving || !isEnabled}
-                className="w-full rounded-3xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-gray-900 disabled:cursor-not-allowed disabled:bg-gray-100"
+                className="w-full rounded-3xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-900 disabled:cursor-not-allowed disabled:bg-slate-100"
               >
-                {CURRENCY_OPTIONS.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
+                {CURRENCY_OPTIONS.map((code) => (
+                  <option key={code} value={code}>
+                    {code}
                   </option>
                 ))}
               </select>
             </div>
 
             <div className="space-y-2">
-              <div className="text-sm text-gray-600">Başlangıç tarihi</div>
+              <div className="text-sm text-slate-600">Başlangıç tarihi</div>
               <input
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
                 disabled={!canManagePayments || saving || !isEnabled}
-                className="w-full rounded-3xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-gray-900 disabled:cursor-not-allowed disabled:bg-gray-100"
+                className="w-full rounded-3xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-900 disabled:cursor-not-allowed disabled:bg-slate-100"
               />
             </div>
+
+            <ReadonlyField
+              label="Mevcut başlangıç tarihi"
+              value={formatUtcDate(settings?.startDateUtc)}
+            />
+            <ReadonlyField
+              label="Son güncelleme"
+              value={formatUtcDate(settings?.updatedAtUtc)}
+            />
           </div>
 
           {!isEnabled ? (
-            <div className="mt-4 rounded-3xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-700">
-              Aidat sistemi kapalıyken organizasyon aidat almıyor kabul edilir.
-              Bu durumda tutar, para birimi ve başlangıç tarihi zorunlu değildir.
+            <div className="mt-5 rounded-3xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-600">
+              Aidat sistemi kapalıyken tutar, para birimi ve başlangıç tarihi
+              zorunlu değildir.
             </div>
           ) : null}
 
@@ -544,106 +414,90 @@ export default function OrganizationPaymentsSection({
           )}
         </div>
 
-        <div className="rounded-[28px] border border-gray-200 bg-white p-5 shadow-sm">
+        <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
           <div className="mb-5">
-            <div className="text-sm text-gray-500">Üye ödeme listesi</div>
-            <div className="mt-1 text-lg font-semibold tracking-tight text-gray-900">
+            <div className="text-sm text-slate-500">Üye ödeme listesi</div>
+            <div className="mt-1 text-lg font-semibold tracking-tight text-slate-900">
               Ödeme durumu takibi
             </div>
-            <p className="mt-2 text-sm leading-6 text-gray-600">
-              Her üye için aidat durumu, ödenecek tutar, sonraki vade ve işlem
-              durumu burada görüntülenir.
-            </p>
           </div>
 
-          {!isEnabled ? (
-            <div className="rounded-3xl border border-dashed border-gray-300 bg-gray-50 p-6 text-sm leading-6 text-gray-600">
-              Bu organizasyonda aidat sistemi şu an kapalı. Aidat takibini
-              başlatmak için sistemi açıp ayarları kaydet.
-            </div>
-          ) : members.length === 0 ? (
-            <div className="rounded-3xl border border-dashed border-gray-300 bg-gray-50 p-6 text-sm leading-6 text-gray-600">
-              Aidat sistemi açık ve kaydedilmiş olduğunda üye ödeme durumları
-              burada oluşacaktır.
+          {members.length === 0 ? (
+            <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-6 text-sm text-slate-600">
+              Aidat sistemi açık ve kaydedilmiş olduğunda üye ödeme durumları burada
+              oluşacaktır.
             </div>
           ) : (
             <div className="space-y-4">
-              {members.map((member) => {
-                const memberCanMarkPaid = canMarkPaid(member);
-
-                return (
-                  <div
-                    key={member.organizationMemberId}
-                    className="rounded-3xl border border-gray-200 bg-slate-50 p-5"
-                  >
-                    <div className="flex flex-col gap-5">
-                      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                        <div className="min-w-0">
-                          <div className="text-xl font-semibold tracking-tight text-gray-900 break-all">
-                            {member.email}
-                          </div>
-
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            <StatusPill label={member.role} active tone="blue" />
-                            <StatusPill
-                              label={member.isMemberActive ? "Üye aktif" : "Üye pasif"}
-                              active={member.isMemberActive}
-                              tone="green"
-                            />
-                            <StatusPill
-                              label={getMemberStatusLabel(member)}
-                              active={member.isOverdue}
-                              tone={getMemberStatusTone(member)}
-                            />
-                          </div>
+              {members.map((member) => (
+                <div
+                  key={member.organizationMemberId}
+                  className="rounded-[28px] border border-slate-200 bg-gradient-to-r from-white via-slate-50 to-slate-50 p-4 shadow-sm"
+                >
+                  <div className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                      <div className="min-w-0 flex-1">
+                        <div className="break-all text-lg font-semibold tracking-tight text-slate-900">
+                          {member.email}
                         </div>
 
-                        {canManagePayments ? (
-                          <div className="flex shrink-0">
-                            <AppButton
-                              onClick={() => handleMarkPaid(member)}
-                              disabled={
-                                saving ||
-                                !memberCanMarkPaid ||
-                                markingMemberId === member.organizationMemberId
-                              }
-                            >
-                              {markingMemberId === member.organizationMemberId
-                                ? "İşleniyor..."
-                                : memberCanMarkPaid
-                                ? "Ödendi olarak işaretle"
-                                : "Ödeme durumu güncel"}
-                            </AppButton>
-                          </div>
-                        ) : null}
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <StatusPill label={member.role} active tone="blue" />
+                          <StatusPill
+                            label={member.isMemberActive ? "Üye aktif" : "Üye pasif"}
+                            active={member.isMemberActive}
+                            tone="green"
+                          />
+                          <StatusPill
+                            label={member.isOverdue ? "Gecikmiş" : "Ödeme durumu güncel"}
+                            active={member.isOverdue}
+                            tone={member.isOverdue ? "yellow" : "neutral"}
+                          />
+                        </div>
                       </div>
 
-                      <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
-                        <MemberInfoBlock
-                          label="Ödenecek tutar"
-                          value={formatAmount(settings?.amount, settings?.currency)}
-                        />
-                        <MemberInfoBlock
-                          label="Periyot"
-                          value={getPeriodLabel(settings?.period)}
-                        />
-                        <MemberInfoBlock
-                          label="Son ödeme"
-                          value={formatUtcDate(member.lastPaidAtUtc)}
-                        />
-                        <MemberInfoBlock
-                          label="Sonraki vade"
-                          value={formatUtcDate(member.nextDueDateUtc)}
-                        />
-                        <MemberInfoBlock
-                          label="Gecikme başlangıcı"
-                          value={formatUtcDate(member.overdueSinceUtc)}
-                        />
-                      </div>
+                      {canManagePayments ? (
+                        <div className="flex shrink-0 justify-start md:justify-end">
+                          <AppButton
+                            onClick={() => handleMarkPaid(member)}
+                            disabled={
+                              saving ||
+                              markingMemberId === member.organizationMemberId
+                            }
+                          >
+                            {markingMemberId === member.organizationMemberId
+                              ? "İşleniyor..."
+                              : "Ödendi olarak işaretle"}
+                          </AppButton>
+                        </div>
+                      ) : null}
+                    </div>
+
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <PaymentInfoBox
+                        label="Ödenecek tutar"
+                        value={formatMoney(settings?.amount, settings?.currency)}
+                      />
+                      <PaymentInfoBox
+                        label="Periyot"
+                        value={getPeriodLabel(settings?.period ?? "Monthly")}
+                      />
+                      <PaymentInfoBox
+                        label="Son ödeme"
+                        value={formatUtcDate(member.lastPaidAtUtc)}
+                      />
+                      <PaymentInfoBox
+                        label="Sonraki vade"
+                        value={formatUtcDate(member.nextDueDateUtc)}
+                      />
+                      <PaymentInfoBox
+                        label="Gecikme başlangıcı"
+                        value={formatUtcDate(member.overdueSinceUtc)}
+                      />
                     </div>
                   </div>
-                );
-              })}
+                </div>
+              ))}
             </div>
           )}
         </div>

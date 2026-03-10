@@ -1,11 +1,10 @@
-import { use } from "react";
-import OrganizationDetailsClient from "./OrganizationDetailsClient";
+import OrganizationOverviewClient from "./OrganizationOverviewClient";
 
-export default function OrganizationDetailsPage({
+export default async function OrganizationPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const { id } = use(params);
-  return <OrganizationDetailsClient id={id} />;
+  const { id } = await params;
+  return <OrganizationOverviewClient id={id} />;
 }
