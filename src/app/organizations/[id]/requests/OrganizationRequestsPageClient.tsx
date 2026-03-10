@@ -1,64 +1,51 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import OrganizationSectionShell from "@/components/organization-section-shell";
 import {
   PendingRequestsSection,
   ReviewedRequestsSection,
 } from "@/components/organization-requests-section";
 import {
-  getMe,
-  getOrganizationById,
   getOrganizationJoinRequests,
-  getOrganizationMembers,
   reviewOrganizationJoinRequest,
   setOrganizationActive,
-  type MeResponse,
-  type OrganizationDto,
   type OrganizationJoinRequestDto,
-  type OrganizationMemberDto,
 } from "@/lib/api";
 import { useToast } from "@/components/ToastProvider";
+import { useOrganizationPageData } from "@/hooks/use-organization-page-data";
+import { useEffect } from "react";
 
 export default function OrganizationRequestsPageClient({ id }: { id: string }) {
   const { showToast } = useToast();
 
-  const [org, setOrg] = useState<OrganizationDto | null>(null);
-  const [me, setMe] = useState<MeResponse | null>(null);
-  const [members, setMembers] = useState<OrganizationMemberDto[]>([]);
+  const {
+    org,
+    me,
+    members,
+    actionLoading,
+    setActionLoading,
+    canManageOrganization,
+    reload,
+  } = useOrganizationPageData(id);
+
   const [requests, setRequests] = useState<OrganizationJoinRequestDto[]>([]);
   const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState(false);
 
-  async function loadData(options?: { silent?: boolean }) {
+  async function loadRequests(options?: { silent?: boolean }) {
     const silent = options?.silent ?? false;
     if (!silent) setLoading(true);
 
     try {
-      const [orgData, meData, memberData, requestData] = await Promise.all([
-        getOrganizationById(id),
-        getMe(),
-        getOrganizationMembers(id),
-        getOrganizationJoinRequests(id),
-      ]);
-
-      setOrg(orgData);
-      setMe(meData);
-      setMembers(memberData);
-      setRequests(requestData);
+      setRequests(await getOrganizationJoinRequests(id));
     } finally {
       if (!silent) setLoading(false);
     }
   }
 
   useEffect(() => {
-    loadData();
+    loadRequests();
   }, [id]);
-
-  const canManageOrganization = useMemo(() => {
-    if (!org || !me) return false;
-    return (me.roles ?? []).includes("SuperAdmin") || me.userId === org.ownerUserId;
-  }, [me, org]);
 
   const pendingJoinRequests = useMemo(
     () => requests.filter((x) => x.status === "Pending"),
@@ -82,7 +69,7 @@ export default function OrganizationRequestsPageClient({ id }: { id: string }) {
     setActionLoading(true);
     try {
       await setOrganizationActive(org.id, !org.isActive);
-      await loadData({ silent: true });
+      await reload({ silent: true });
     } finally {
       setActionLoading(false);
     }
@@ -93,7 +80,7 @@ export default function OrganizationRequestsPageClient({ id }: { id: string }) {
 
     try {
       await reviewOrganizationJoinRequest(requestId, approve);
-      await loadData({ silent: true });
+      await loadRequests({ silent: true });
 
       showToast({
         message: approve ? "Katılım talebi onaylandı." : "Katılım talebi reddedildi.",

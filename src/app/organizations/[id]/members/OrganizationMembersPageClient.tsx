@@ -1,68 +1,35 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
 import { useToast } from "@/components/ToastProvider";
 import OrganizationSectionShell from "@/components/organization-section-shell";
 import { OrganizationMembersSection } from "@/components/organization-members-section";
 import {
   addOrganizationMember,
   deleteOrganizationMember,
-  getMe,
-  getOrganizationById,
-  getOrganizationMembers,
   setOrganizationActive,
   transferOrganizationOwnership,
   updateOrganizationMember,
-  type MeResponse,
-  type OrganizationDto,
   type OrganizationMemberDto,
 } from "@/lib/api";
+import { useOrganizationPageData } from "@/hooks/use-organization-page-data";
+import { useState } from "react";
 
 export default function OrganizationMembersPageClient({ id }: { id: string }) {
   const { showToast } = useToast();
 
-  const [org, setOrg] = useState<OrganizationDto | null>(null);
-  const [me, setMe] = useState<MeResponse | null>(null);
-  const [members, setMembers] = useState<OrganizationMemberDto[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [membersLoading, setMembersLoading] = useState(false);
-  const [actionLoading, setActionLoading] = useState(false);
+  const {
+    org,
+    me,
+    members,
+    loading,
+    actionLoading,
+    setActionLoading,
+    canManageOrganization,
+    reload,
+  } = useOrganizationPageData(id);
+
   const [memberEmail, setMemberEmail] = useState("");
   const [memberRole, setMemberRole] = useState<"Member" | "Assistant">("Member");
-
-  async function loadData(options?: { silent?: boolean }) {
-    const silent = options?.silent ?? false;
-    if (!silent) {
-      setLoading(true);
-      setMembersLoading(true);
-    }
-
-    try {
-      const [orgData, meData, memberData] = await Promise.all([
-        getOrganizationById(id),
-        getMe(),
-        getOrganizationMembers(id),
-      ]);
-
-      setOrg(orgData);
-      setMe(meData);
-      setMembers(memberData);
-    } finally {
-      if (!silent) {
-        setLoading(false);
-        setMembersLoading(false);
-      }
-    }
-  }
-
-  useEffect(() => {
-    loadData();
-  }, [id]);
-
-  const canManageOrganization = useMemo(() => {
-    if (!org || !me) return false;
-    return (me.roles ?? []).includes("SuperAdmin") || me.userId === org.ownerUserId;
-  }, [me, org]);
 
   async function handleToggleActive() {
     if (!org?.id || typeof org.isActive !== "boolean") return;
@@ -78,7 +45,7 @@ export default function OrganizationMembersPageClient({ id }: { id: string }) {
     setActionLoading(true);
     try {
       await setOrganizationActive(org.id, targetIsActive);
-      await loadData({ silent: true });
+      await reload({ silent: true });
       showToast({
         message: targetIsActive
           ? "Organizasyon başarıyla aktif hale getirildi."
@@ -108,7 +75,7 @@ export default function OrganizationMembersPageClient({ id }: { id: string }) {
       setMemberEmail("");
       setMemberRole("Member");
 
-      await loadData({ silent: true });
+      await reload({ silent: true });
 
       showToast({
         message: "Üye başarıyla organizasyona eklendi.",
@@ -133,7 +100,7 @@ export default function OrganizationMembersPageClient({ id }: { id: string }) {
         isActive: member.isActive,
       });
 
-      await loadData({ silent: true });
+      await reload({ silent: true });
 
       showToast({
         message:
@@ -157,7 +124,7 @@ export default function OrganizationMembersPageClient({ id }: { id: string }) {
         isActive: !member.isActive,
       });
 
-      await loadData({ silent: true });
+      await reload({ silent: true });
 
       showToast({
         message: member.isActive ? "Üye pasif hale getirildi." : "Üye tekrar aktif hale getirildi.",
@@ -179,7 +146,7 @@ export default function OrganizationMembersPageClient({ id }: { id: string }) {
     setActionLoading(true);
     try {
       await deleteOrganizationMember(id, member.id);
-      await loadData({ silent: true });
+      await reload({ silent: true });
       showToast({ message: "Üye organizasyondan çıkarıldı.", type: "success" });
     } finally {
       setActionLoading(false);
@@ -197,7 +164,7 @@ export default function OrganizationMembersPageClient({ id }: { id: string }) {
     setActionLoading(true);
     try {
       await transferOrganizationOwnership(id, member.userId);
-      await loadData({ silent: true });
+      await reload({ silent: true });
       showToast({ message: "Owner transfer başarıyla tamamlandı.", type: "success" });
     } finally {
       setActionLoading(false);
@@ -217,7 +184,7 @@ export default function OrganizationMembersPageClient({ id }: { id: string }) {
     >
       <OrganizationMembersSection
         members={members}
-        loading={loading || membersLoading}
+        loading={loading}
         canManageOrganization={canManageOrganization}
         actionLoading={actionLoading}
         memberEmail={memberEmail}

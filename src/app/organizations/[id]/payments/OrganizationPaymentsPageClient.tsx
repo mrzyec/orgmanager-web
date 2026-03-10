@@ -1,44 +1,20 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
 import OrganizationSectionShell from "@/components/organization-section-shell";
 import OrganizationPaymentsSection from "@/components/organization-payments-section";
-import {
-  getMe,
-  getOrganizationById,
-  getOrganizationMembers,
-  setOrganizationActive,
-  type MeResponse,
-  type OrganizationDto,
-  type OrganizationMemberDto,
-} from "@/lib/api";
+import { setOrganizationActive } from "@/lib/api";
+import { useOrganizationPageData } from "@/hooks/use-organization-page-data";
 
 export default function OrganizationPaymentsPageClient({ id }: { id: string }) {
-  const [org, setOrg] = useState<OrganizationDto | null>(null);
-  const [me, setMe] = useState<MeResponse | null>(null);
-  const [members, setMembers] = useState<OrganizationMemberDto[]>([]);
-  const [actionLoading, setActionLoading] = useState(false);
-
-  async function loadData(options?: { silent?: boolean }) {
-    const [orgData, meData, memberData] = await Promise.all([
-      getOrganizationById(id),
-      getMe(),
-      getOrganizationMembers(id),
-    ]);
-
-    setOrg(orgData);
-    setMe(meData);
-    setMembers(memberData);
-  }
-
-  useEffect(() => {
-    loadData();
-  }, [id]);
-
-  const canManageOrganization = useMemo(() => {
-    if (!org || !me) return false;
-    return (me.roles ?? []).includes("SuperAdmin") || me.userId === org.ownerUserId;
-  }, [me, org]);
+  const {
+    org,
+    me,
+    members,
+    actionLoading,
+    setActionLoading,
+    canManageOrganization,
+    reload,
+  } = useOrganizationPageData(id);
 
   const canManagePayments = canManageOrganization;
 
@@ -55,7 +31,7 @@ export default function OrganizationPaymentsPageClient({ id }: { id: string }) {
     setActionLoading(true);
     try {
       await setOrganizationActive(org.id, !org.isActive);
-      await loadData({ silent: true });
+      await reload({ silent: true });
     } finally {
       setActionLoading(false);
     }
