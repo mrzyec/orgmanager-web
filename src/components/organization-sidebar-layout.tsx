@@ -46,10 +46,11 @@ export default function OrganizationSidebarLayout({
               <Link
                 key={item.key}
                 href={item.href}
+                prefetch
                 className={`block rounded-2xl border px-4 py-3 transition-all duration-200 ${
                   item.isActive
                     ? "border-slate-900 bg-slate-900 text-white shadow-md"
-                    : "border-slate-200 bg-white text-slate-800 hover:border-slate-300 hover:bg-slate-50"
+                    : "border-slate-200 bg-white text-slate-800 hover:-translate-y-0.5 hover:border-slate-300 hover:bg-slate-50 hover:shadow-sm"
                 }`}
               >
                 <div className="text-sm font-semibold">{item.label}</div>

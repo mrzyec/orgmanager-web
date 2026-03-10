@@ -1,14 +1,21 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import { useToast } from "@/components/ToastProvider";
 import { AppButton, AppCard } from "@/components/ui";
 import { ReadonlyField } from "@/components/detail-ui";
+import { AppField, AppInput, AppSelect } from "@/components/form-ui";
 import OrganizationSectionShell from "@/components/organization-section-shell";
 import {
   regenerateOrganizationJoinCode,
   setOrganizationActive,
 } from "@/lib/api";
 import { useOrganizationPageData } from "@/hooks/use-organization-page-data";
+import { updateOrganizationSettings } from "@/lib/organization-settings-api";
+import {
+  CITY_DISTRICT_SUGGESTIONS,
+  TURKEY_CITIES,
+} from "@/lib/turkey-cities";
 
 function formatUtcDate(value?: string | null) {
   if (!value) return "-";
@@ -36,6 +43,28 @@ export default function OrganizationSettingsPageClient({ id }: { id: string }) {
     reload,
   } = useOrganizationPageData(id);
 
+  const [name, setName] = useState("");
+  const [taxNumber, setTaxNumber] = useState("");
+  const [city, setCity] = useState("");
+  const [district, setDistrict] = useState("");
+  const [description, setDescription] = useState("");
+  const [formDirty, setFormDirty] = useState(false);
+
+  useEffect(() => {
+    if (!org) return;
+
+    setName(org.name ?? "");
+    setTaxNumber(org.taxNumber ?? "");
+    setCity(org.city ?? "");
+    setDistrict(org.district ?? "");
+    setDescription(org.description ?? "");
+    setFormDirty(false);
+  }, [org]);
+
+  const districtOptions = useMemo(() => {
+    return CITY_DISTRICT_SUGGESTIONS[city] ?? [];
+  }, [city]);
+
   async function handleToggleActive() {
     if (!org?.id || typeof org.isActive !== "boolean") return;
 
@@ -50,7 +79,7 @@ export default function OrganizationSettingsPageClient({ id }: { id: string }) {
     setActionLoading(true);
     try {
       await setOrganizationActive(org.id, targetIsActive);
-      await reload({ silent: true });
+      await reload({ silent: true, force: true });
 
       showToast({
         message: targetIsActive
@@ -91,7 +120,7 @@ export default function OrganizationSettingsPageClient({ id }: { id: string }) {
     setActionLoading(true);
     try {
       await regenerateOrganizationJoinCode(org.id);
-      await reload({ silent: true });
+      await reload({ silent: true, force: true });
 
       showToast({
         message: "Katılım kodu başarıyla yenilendi.",
@@ -100,6 +129,72 @@ export default function OrganizationSettingsPageClient({ id }: { id: string }) {
     } catch (e: any) {
       showToast({
         message: e?.message ?? "Katılım kodu yenilenemedi.",
+        type: "error",
+      });
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function handleSaveGeneralSettings(
+    e: React.FormEvent<HTMLFormElement>
+  ) {
+    e.preventDefault();
+
+    if (!org?.id) return;
+
+    if (!name.trim()) {
+      showToast({
+        message: "Organizasyon adı boş bırakılamaz.",
+        type: "error",
+      });
+      return;
+    }
+
+    if (!taxNumber.trim()) {
+      showToast({
+        message: "Vergi numarası boş bırakılamaz.",
+        type: "error",
+      });
+      return;
+    }
+
+    if (!city.trim()) {
+      showToast({
+        message: "Şehir boş bırakılamaz.",
+        type: "error",
+      });
+      return;
+    }
+
+    if (!district.trim()) {
+      showToast({
+        message: "İlçe boş bırakılamaz.",
+        type: "error",
+      });
+      return;
+    }
+
+    setActionLoading(true);
+    try {
+      await updateOrganizationSettings(org.id, {
+        name: name.trim(),
+        taxNumber: taxNumber.trim(),
+        city: city.trim(),
+        district: district.trim(),
+        description: description.trim() ? description.trim() : null,
+      });
+
+      await reload({ silent: true, force: true });
+      setFormDirty(false);
+
+      showToast({
+        message: "Organizasyon bilgileri başarıyla güncellendi.",
+        type: "success",
+      });
+    } catch (e: any) {
+      showToast({
+        message: e?.message ?? "Organizasyon bilgileri güncellenemedi.",
         type: "error",
       });
     } finally {
@@ -116,83 +211,187 @@ export default function OrganizationSettingsPageClient({ id }: { id: string }) {
       canManageOrganization={canManageOrganization}
       actionLoading={actionLoading}
       onToggleActive={handleToggleActive}
-      subtitle="Organizasyonun join code ve operasyonel ayarlarını bu sayfadan yönetebilirsin."
+      subtitle="Organizasyonun temel ayarlarını, join code bilgisini ve operasyonel işlemlerini bu sayfadan yönetebilirsin."
     >
       <AppCard>
         {loading ? <div className="mb-4 text-sm text-slate-600">Yükleniyor...</div> : null}
 
-        <div className="grid gap-6 xl:grid-cols-2">
-          <div className="rounded-[28px] border border-slate-200 bg-gradient-to-r from-slate-50 via-white to-amber-50/20 p-5 shadow-sm">
-            <div className="mb-4">
-              <div className="text-sm text-slate-500">Katılım ayarları</div>
+        <div className="grid gap-6">
+          <form
+            onSubmit={handleSaveGeneralSettings}
+            className="rounded-[28px] border border-slate-200 bg-gradient-to-r from-slate-50 via-white to-blue-50/20 p-5 shadow-sm"
+          >
+            <div className="mb-5">
+              <div className="text-sm text-slate-500">Genel ayarlar</div>
               <div className="mt-1 text-lg font-semibold tracking-tight text-slate-900">
-                Join code yönetimi
+                Organizasyon bilgilerini düzenle
               </div>
               <p className="mt-2 text-sm leading-6 text-slate-600">
-                Organizasyona katılım için kullanılan kodu buradan görüntüleyebilir, kopyalayabilir veya yenileyebilirsin.
+                Organizasyonun temel bilgilerini bu alandan güncelleyebilirsin.
               </p>
             </div>
 
-            <div className="grid gap-4">
-              <ReadonlyField
-                label="Geçerli join code"
-                value={org?.joinCode ?? ""}
-                mono
-              />
-              <ReadonlyField
-                label="Organizasyon durumu"
-                value={org?.isActive ? "Aktif" : "Pasif"}
-              />
-              <ReadonlyField
-                label="Oluşturulma tarihi"
-                value={formatUtcDate(org?.createdAtUtc)}
-                mono
-              />
-            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <AppField label="Organizasyon adı">
+                <AppInput
+                  value={name}
+                  onChange={(e) => {
+                    setName(e.target.value);
+                    setFormDirty(true);
+                  }}
+                  placeholder="Organizasyon adı"
+                />
+              </AppField>
 
-            {canManageOrganization ? (
-              <div className="mt-5 flex flex-wrap gap-2">
-                <AppButton onClick={handleCopyJoinCode}>
-                  Kodu kopyala
-                </AppButton>
+              <AppField label="Vergi numarası">
+                <AppInput
+                  value={taxNumber}
+                  onChange={(e) => {
+                    setTaxNumber(e.target.value);
+                    setFormDirty(true);
+                  }}
+                  placeholder="Vergi numarası"
+                />
+              </AppField>
 
-                <AppButton
-                  onClick={handleRegenerateJoinCode}
-                  disabled={actionLoading}
+              <AppField label="Şehir">
+                <AppSelect
+                  value={city}
+                  onChange={(e) => {
+                    const nextCity = e.target.value;
+                    setCity(nextCity);
+                    setDistrict("");
+                    setFormDirty(true);
+                  }}
                 >
-                  {actionLoading ? "İşleniyor..." : "Yeni kod üret"}
-                </AppButton>
-              </div>
-            ) : null}
-          </div>
+                  <option value="">Şehir seç</option>
+                  {TURKEY_CITIES.map((cityOption) => (
+                    <option key={cityOption} value={cityOption}>
+                      {cityOption}
+                    </option>
+                  ))}
+                </AppSelect>
+              </AppField>
 
-          <div className="rounded-[28px] border border-red-200 bg-gradient-to-r from-red-50 via-white to-red-50/40 p-5 shadow-sm">
-            <div className="mb-4">
-              <div className="text-sm text-red-600">Tehlikeli işlemler</div>
-              <div className="mt-1 text-lg font-semibold tracking-tight text-slate-900">
-                Organizasyon durumu
+              <AppField label="İlçe">
+                <AppSelect
+                  value={district}
+                  onChange={(e) => {
+                    setDistrict(e.target.value);
+                    setFormDirty(true);
+                  }}
+                  disabled={!city}
+                >
+                  <option value="">
+                    {city ? "İlçe seç" : "Önce şehir seç"}
+                  </option>
+                  {districtOptions.map((districtOption) => (
+                    <option key={districtOption} value={districtOption}>
+                      {districtOption}
+                    </option>
+                  ))}
+                </AppSelect>
+              </AppField>
+
+              <div className="md:col-span-2">
+                <AppField label="Açıklama">
+                  <textarea
+                    value={description}
+                    onChange={(e) => {
+                      setDescription(e.target.value);
+                      setFormDirty(true);
+                    }}
+                    placeholder="Organizasyon açıklaması"
+                    rows={5}
+                    className="w-full rounded-3xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-900"
+                  />
+                </AppField>
               </div>
-              <p className="mt-2 text-sm leading-6 text-slate-600">
-                Organizasyonu aktif veya pasif hale getirme işlemleri dikkatli kullanılmalıdır.
-              </p>
             </div>
 
-            <div className="rounded-3xl border border-red-200 bg-white/90 p-4 text-sm leading-6 text-slate-700">
-              Pasif durumda organizasyon görünürlüğü ve bazı akışlar etkilenebilir.
-              Bu işlemi yapmadan önce emin olman gerekir.
+            <div className="mt-5 flex flex-wrap gap-2">
+              <AppButton
+                type="submit"
+                disabled={actionLoading || !formDirty}
+              >
+                {actionLoading ? "Kaydediliyor..." : "Bilgileri kaydet"}
+              </AppButton>
+            </div>
+          </form>
+
+          <div className="grid gap-6 xl:grid-cols-2">
+            <div className="rounded-[28px] border border-slate-200 bg-gradient-to-r from-slate-50 via-white to-amber-50/20 p-5 shadow-sm">
+              <div className="mb-4">
+                <div className="text-sm text-slate-500">Katılım ayarları</div>
+                <div className="mt-1 text-lg font-semibold tracking-tight text-slate-900">
+                  Join code yönetimi
+                </div>
+                <p className="mt-2 text-sm leading-6 text-slate-600">
+                  Organizasyona katılım için kullanılan kodu buradan görüntüleyebilir, kopyalayabilir veya yenileyebilirsin.
+                </p>
+              </div>
+
+              <div className="grid gap-4">
+                <ReadonlyField
+                  label="Geçerli join code"
+                  value={org?.joinCode ?? ""}
+                  mono
+                />
+                <ReadonlyField
+                  label="Organizasyon durumu"
+                  value={org?.isActive ? "Aktif" : "Pasif"}
+                />
+                <ReadonlyField
+                  label="Oluşturulma tarihi"
+                  value={formatUtcDate(org?.createdAtUtc)}
+                  mono
+                />
+              </div>
+
+              {canManageOrganization ? (
+                <div className="mt-5 flex flex-wrap gap-2">
+                  <AppButton onClick={handleCopyJoinCode}>
+                    Kodu kopyala
+                  </AppButton>
+
+                  <AppButton
+                    onClick={handleRegenerateJoinCode}
+                    disabled={actionLoading}
+                  >
+                    {actionLoading ? "İşleniyor..." : "Yeni kod üret"}
+                  </AppButton>
+                </div>
+              ) : null}
             </div>
 
-            {canManageOrganization ? (
-              <div className="mt-5">
-                <AppButton onClick={handleToggleActive} disabled={actionLoading}>
-                  {actionLoading
-                    ? "Güncelleniyor..."
-                    : org?.isActive
-                    ? "Organizasyonu pasife al"
-                    : "Organizasyonu aktif et"}
-                </AppButton>
+            <div className="rounded-[28px] border border-red-200 bg-gradient-to-r from-red-50 via-white to-red-50/40 p-5 shadow-sm">
+              <div className="mb-4">
+                <div className="text-sm text-red-600">Tehlikeli işlemler</div>
+                <div className="mt-1 text-lg font-semibold tracking-tight text-slate-900">
+                  Organizasyon durumu
+                </div>
+                <p className="mt-2 text-sm leading-6 text-slate-600">
+                  Organizasyonu aktif veya pasif hale getirme işlemleri dikkatli kullanılmalıdır.
+                </p>
               </div>
-            ) : null}
+
+              <div className="rounded-3xl border border-red-200 bg-white/90 p-4 text-sm leading-6 text-slate-700">
+                Pasif durumda organizasyon görünürlüğü ve bazı akışlar etkilenebilir.
+                Bu işlemi yapmadan önce emin olman gerekir.
+              </div>
+
+              {canManageOrganization ? (
+                <div className="mt-5">
+                  <AppButton onClick={handleToggleActive} disabled={actionLoading}>
+                    {actionLoading
+                      ? "Güncelleniyor..."
+                      : org?.isActive
+                      ? "Organizasyonu pasife al"
+                      : "Organizasyonu aktif et"}
+                  </AppButton>
+                </div>
+              ) : null}
+            </div>
           </div>
         </div>
       </AppCard>

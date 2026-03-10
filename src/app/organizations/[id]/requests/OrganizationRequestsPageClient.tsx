@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import OrganizationSectionShell from "@/components/organization-section-shell";
 import {
   PendingRequestsSection,
@@ -14,7 +14,6 @@ import {
 } from "@/lib/api";
 import { useToast } from "@/components/ToastProvider";
 import { useOrganizationPageData } from "@/hooks/use-organization-page-data";
-import { useEffect } from "react";
 
 export default function OrganizationRequestsPageClient({ id }: { id: string }) {
   const { showToast } = useToast();
@@ -23,6 +22,7 @@ export default function OrganizationRequestsPageClient({ id }: { id: string }) {
     org,
     me,
     members,
+    loading: shellLoading,
     actionLoading,
     setActionLoading,
     canManageOrganization,
@@ -34,12 +34,18 @@ export default function OrganizationRequestsPageClient({ id }: { id: string }) {
 
   async function loadRequests(options?: { silent?: boolean }) {
     const silent = options?.silent ?? false;
-    if (!silent) setLoading(true);
+
+    if (!silent) {
+      setLoading(true);
+    }
 
     try {
-      setRequests(await getOrganizationJoinRequests(id));
+      const data = await getOrganizationJoinRequests(id);
+      setRequests(data);
     } finally {
-      if (!silent) setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   }
 
@@ -59,8 +65,10 @@ export default function OrganizationRequestsPageClient({ id }: { id: string }) {
 
   async function handleToggleActive() {
     if (!org?.id || typeof org.isActive !== "boolean") return;
+
+    const targetIsActive = !org.isActive;
     const confirmed = window.confirm(
-      !org.isActive
+      targetIsActive
         ? "Bu organizasyonu aktif hale getirmek istiyor musun?"
         : "Bu organizasyonu pasif hale getirmek istiyor musun?"
     );
@@ -68,8 +76,14 @@ export default function OrganizationRequestsPageClient({ id }: { id: string }) {
 
     setActionLoading(true);
     try {
-      await setOrganizationActive(org.id, !org.isActive);
-      await reload({ silent: true });
+      await setOrganizationActive(org.id, targetIsActive);
+      await reload({ silent: true, force: true });
+      showToast({
+        message: targetIsActive
+          ? "Organizasyon başarıyla aktif hale getirildi."
+          : "Organizasyon başarıyla pasif hale getirildi.",
+        type: "success",
+      });
     } finally {
       setActionLoading(false);
     }
@@ -104,14 +118,14 @@ export default function OrganizationRequestsPageClient({ id }: { id: string }) {
     >
       <PendingRequestsSection
         requests={pendingJoinRequests}
-        loading={loading}
+        loading={shellLoading || loading}
         actionLoading={actionLoading}
         onReview={handleReviewJoinRequest}
       />
 
       <ReviewedRequestsSection
         requests={reviewedJoinRequests}
-        loading={loading}
+        loading={shellLoading || loading}
       />
     </OrganizationSectionShell>
   );
