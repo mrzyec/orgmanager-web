@@ -2,8 +2,8 @@
 
 import { useMemo } from "react";
 import { usePathname } from "next/navigation";
-import { AppCard, AppPage } from "@/components/ui";
-import { AppNavbar, AppNavbarDetailsActions } from "@/components/app-navbar";
+import { AppCard, AppLinkButton, AppPage } from "@/components/ui";
+import { AppNavbar } from "@/components/app-navbar";
 import OrganizationSidebarLayout from "@/components/organization-sidebar-layout";
 import { StatusPill } from "@/components/badges";
 import type {
@@ -58,8 +58,6 @@ type Props = {
   me: MeResponse | null;
   members?: OrganizationMemberDto[];
   canManageOrganization: boolean;
-  actionLoading?: boolean;
-  onToggleActive?: () => void;
   subtitle: string;
   children: React.ReactNode;
 };
@@ -70,8 +68,6 @@ export default function OrganizationSectionShell({
   me,
   members = [],
   canManageOrganization,
-  actionLoading = false,
-  onToggleActive,
   subtitle,
   children,
 }: Props) {
@@ -188,14 +184,7 @@ export default function OrganizationSectionShell({
         email={me?.email}
         title={org?.name ?? "Organizasyon detayları"}
         subtitle={subtitle}
-        actions={
-          <AppNavbarDetailsActions
-            onToggleActive={onToggleActive ?? (() => {})}
-            actionLoading={actionLoading}
-            isActive={org?.isActive}
-            canManageOrganization={canManageOrganization}
-          />
-        }
+        actions={<AppLinkButton href="/dashboard">Geri dön</AppLinkButton>}
       />
 
       <OrganizationSidebarLayout

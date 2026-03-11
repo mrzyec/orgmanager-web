@@ -29,6 +29,36 @@ function formatUtcDate(value?: string | null) {
   }).format(date);
 }
 
+function SettingsBlock({
+  eyebrow,
+  title,
+  description,
+  children,
+}: {
+  eyebrow: string;
+  title: string;
+  description?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-[24px] border border-slate-200 bg-white/80 p-5 shadow-sm">
+      <div className="mb-4">
+        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          {eyebrow}
+        </div>
+        <div className="mt-1 text-lg font-semibold tracking-tight text-slate-900">
+          {title}
+        </div>
+        {description ? (
+          <p className="mt-2 text-sm leading-6 text-slate-600">{description}</p>
+        ) : null}
+      </div>
+
+      {children}
+    </div>
+  );
+}
+
 export default function OrganizationSettingsPageClient({ id }: { id: string }) {
   const { showToast } = useToast();
 
@@ -61,9 +91,19 @@ export default function OrganizationSettingsPageClient({ id }: { id: string }) {
     setFormDirty(false);
   }, [org]);
 
+  const sortedCityOptions = useMemo(() => {
+    return [...TURKEY_CITIES].sort((a, b) => a.localeCompare(b, "tr"));
+  }, []);
+
   const districtOptions = useMemo(() => {
-    return CITY_DISTRICT_SUGGESTIONS[city] ?? [];
+    const items = CITY_DISTRICT_SUGGESTIONS[city] ?? [];
+    return [...items].sort((a, b) => a.localeCompare(b, "tr"));
   }, [city]);
+
+  const districtSelectionIsValid = useMemo(() => {
+    if (!city || !district) return false;
+    return districtOptions.includes(district);
+  }, [city, district, districtOptions]);
 
   async function handleToggleActive() {
     if (!org?.id || typeof org.isActive !== "boolean") return;
@@ -175,6 +215,14 @@ export default function OrganizationSettingsPageClient({ id }: { id: string }) {
       return;
     }
 
+    if (!districtSelectionIsValid) {
+      showToast({
+        message: "Seçilen şehir için listeden geçerli bir ilçe seçmelisin.",
+        type: "error",
+      });
+      return;
+    }
+
     setActionLoading(true);
     try {
       await updateOrganizationSettings(org.id, {
@@ -212,9 +260,12 @@ export default function OrganizationSettingsPageClient({ id }: { id: string }) {
       actionLoading={actionLoading}
       onToggleActive={handleToggleActive}
       subtitle="Organizasyonun temel ayarlarını, join code bilgisini ve operasyonel işlemlerini bu sayfadan yönetebilirsin."
+      showHeaderDangerAction = {false}
     >
       <AppCard>
-        {loading ? <div className="mb-4 text-sm text-slate-600">Yükleniyor...</div> : null}
+        {loading ? (
+          <div className="mb-4 text-sm text-slate-600">Yükleniyor...</div>
+        ) : null}
 
         <div className="grid gap-6">
           <form
@@ -227,73 +278,118 @@ export default function OrganizationSettingsPageClient({ id }: { id: string }) {
                 Organizasyon bilgilerini düzenle
               </div>
               <p className="mt-2 text-sm leading-6 text-slate-600">
-                Organizasyonun temel bilgilerini bu alandan güncelleyebilirsin.
+                Organizasyonun temel bilgilerini bu alandan daha düzenli bloklar
+                halinde güncelleyebilirsin.
               </p>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <AppField label="Organizasyon adı">
-                <AppInput
-                  value={name}
-                  onChange={(e) => {
-                    setName(e.target.value);
-                    setFormDirty(true);
-                  }}
-                  placeholder="Organizasyon adı"
-                />
-              </AppField>
+            <div className="grid gap-5">
+              <SettingsBlock
+                eyebrow="Bölüm 1"
+                title="Temel bilgiler"
+                description="Organizasyonun ana kimliğini oluşturan alanlar."
+              >
+                <div className="grid gap-4 md:grid-cols-2">
+                  <AppField label="Organizasyon adı">
+                    <AppInput
+                      value={name}
+                      onChange={(e) => {
+                        setName(e.target.value);
+                        setFormDirty(true);
+                      }}
+                      placeholder="Organizasyon adı"
+                    />
+                  </AppField>
 
-              <AppField label="Vergi numarası">
-                <AppInput
-                  value={taxNumber}
-                  onChange={(e) => {
-                    setTaxNumber(e.target.value);
-                    setFormDirty(true);
-                  }}
-                  placeholder="Vergi numarası"
-                />
-              </AppField>
+                  <AppField label="Vergi numarası">
+                    <AppInput
+                      value={taxNumber}
+                      onChange={(e) => {
+                        setTaxNumber(e.target.value);
+                        setFormDirty(true);
+                      }}
+                      placeholder="Vergi numarası"
+                    />
+                  </AppField>
+                </div>
+              </SettingsBlock>
 
-              <AppField label="Şehir">
-                <AppSelect
-                  value={city}
-                  onChange={(e) => {
-                    const nextCity = e.target.value;
-                    setCity(nextCity);
-                    setDistrict("");
-                    setFormDirty(true);
-                  }}
-                >
-                  <option value="">Şehir seç</option>
-                  {TURKEY_CITIES.map((cityOption) => (
-                    <option key={cityOption} value={cityOption}>
-                      {cityOption}
-                    </option>
-                  ))}
-                </AppSelect>
-              </AppField>
+              <SettingsBlock
+                eyebrow="Bölüm 2"
+                title="Konum bilgileri"
+                description="Şehir ve ilçe alanlarını burada yönetebilirsin."
+              >
+                <div className="grid gap-4 md:grid-cols-2">
+                  <AppField label="Şehir">
+                    <AppSelect
+                      value={city}
+                      onChange={(e) => {
+                        const nextCity = e.target.value;
+                        setCity(nextCity);
+                        setDistrict("");
+                        setFormDirty(true);
+                      }}
+                    >
+                      <option value="">Şehir seç</option>
+                      {sortedCityOptions.map((cityOption) => (
+                        <option key={cityOption} value={cityOption}>
+                          {cityOption}
+                        </option>
+                      ))}
+                    </AppSelect>
+                  </AppField>
 
-              <AppField label="İlçe">
-                <AppSelect
-                  value={district}
-                  onChange={(e) => {
-                    setDistrict(e.target.value);
-                    setFormDirty(true);
-                  }}
-                  disabled={!city}
-                >
-                  <option value="">
-                    {city ? "İlçe seç" : "Önce şehir seç"}
-                  </option>
-                  {districtOptions.map((districtOption) => (
-                    <option key={districtOption} value={districtOption}>
-                      {districtOption}
-                    </option>
-                  ))}
-                </AppSelect>
-              </AppField>
+                  <AppField label="İlçe">
+                    <AppSelect
+                      value={district}
+                      onChange={(e) => {
+                        setDistrict(e.target.value);
+                        setFormDirty(true);
+                      }}
+                      disabled={!city}
+                    >
+                      <option value="">
+                        {city ? "İlçe seç" : "Önce şehir seç"}
+                      </option>
+                      {districtOptions.map((districtOption) => (
+                        <option key={districtOption} value={districtOption}>
+                          {districtOption}
+                        </option>
+                      ))}
+                    </AppSelect>
+                  </AppField>
+                </div>
 
-              <div className="md:col-span-2">
+                <div className="mt-4">
+                  {!city ? (
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                      İlçe seçebilmek için önce şehir seçmelisin.
+                    </div>
+                  ) : districtOptions.length === 0 ? (
+                    <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                      Bu şehir için ilçe listesi henüz tanımlı değil.
+                    </div>
+                  ) : !district ? (
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                      Seçili şehir için {districtOptions.length} ilçe bulundu.
+                    </div>
+                  ) : !districtSelectionIsValid ? (
+                    <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                      Seçilen şehir için geçerli bir ilçe seçmelisin.
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                      İl ve ilçe seçimi hazır.
+                    </div>
+                  )}
+                </div>
+              </SettingsBlock>
+
+              <SettingsBlock
+                eyebrow="Bölüm 3"
+                title="Açıklama"
+                description="Organizasyon hakkında kısa açıklama ekleyebilirsin."
+              >
                 <AppField label="Açıklama">
                   <textarea
                     value={description}
@@ -306,13 +402,19 @@ export default function OrganizationSettingsPageClient({ id }: { id: string }) {
                     className="w-full rounded-3xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-900"
                   />
                 </AppField>
-              </div>
+              </SettingsBlock>
             </div>
 
             <div className="mt-5 flex flex-wrap gap-2">
               <AppButton
                 type="submit"
-                disabled={actionLoading || !formDirty}
+                disabled={
+                  actionLoading ||
+                  !formDirty ||
+                  !city ||
+                  !district ||
+                  !districtSelectionIsValid
+                }
               >
                 {actionLoading ? "Kaydediliyor..." : "Bilgileri kaydet"}
               </AppButton>
@@ -327,7 +429,8 @@ export default function OrganizationSettingsPageClient({ id }: { id: string }) {
                   Join code yönetimi
                 </div>
                 <p className="mt-2 text-sm leading-6 text-slate-600">
-                  Organizasyona katılım için kullanılan kodu buradan görüntüleyebilir, kopyalayabilir veya yenileyebilirsin.
+                  Organizasyona katılım için kullanılan kodu buradan
+                  görüntüleyebilir, kopyalayabilir veya yenileyebilirsin.
                 </p>
               </div>
 
@@ -371,18 +474,22 @@ export default function OrganizationSettingsPageClient({ id }: { id: string }) {
                   Organizasyon durumu
                 </div>
                 <p className="mt-2 text-sm leading-6 text-slate-600">
-                  Organizasyonu aktif veya pasif hale getirme işlemleri dikkatli kullanılmalıdır.
+                  Organizasyonu aktif veya pasif hale getirme işlemleri dikkatli
+                  kullanılmalıdır.
                 </p>
               </div>
 
               <div className="rounded-3xl border border-red-200 bg-white/90 p-4 text-sm leading-6 text-slate-700">
-                Pasif durumda organizasyon görünürlüğü ve bazı akışlar etkilenebilir.
-                Bu işlemi yapmadan önce emin olman gerekir.
+                Pasif durumda organizasyon görünürlüğü ve bazı akışlar
+                etkilenebilir. Bu işlemi yapmadan önce emin olman gerekir.
               </div>
 
               {canManageOrganization ? (
                 <div className="mt-5">
-                  <AppButton onClick={handleToggleActive} disabled={actionLoading}>
+                  <AppButton
+                    onClick={handleToggleActive}
+                    disabled={actionLoading}
+                  >
                     {actionLoading
                       ? "Güncelleniyor..."
                       : org?.isActive

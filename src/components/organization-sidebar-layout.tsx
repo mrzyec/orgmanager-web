@@ -24,16 +24,18 @@ export default function OrganizationSidebarLayout({
   children,
 }: OrganizationSidebarLayoutProps) {
   return (
-    <div className="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)]">
+    <div className="grid gap-6 xl:grid-cols-[250px_minmax(0,1fr)]">
       <aside className="xl:sticky xl:top-6 xl:self-start">
         <div className="rounded-[28px] border border-slate-200 bg-gradient-to-b from-slate-50 via-white to-slate-50 p-5 shadow-sm">
           <div className="mb-5">
             <div className="text-sm font-medium text-slate-500">
               Organizasyon menüsü
             </div>
+
             <div className="mt-1 text-xl font-semibold tracking-tight text-slate-900">
               {title}
             </div>
+
             {subtitle ? (
               <p className="mt-2 text-sm leading-6 text-slate-600">
                 {subtitle}
@@ -54,6 +56,7 @@ export default function OrganizationSidebarLayout({
                 }`}
               >
                 <div className="text-sm font-semibold">{item.label}</div>
+
                 {item.description ? (
                   <div
                     className={`mt-1 text-xs leading-5 ${
@@ -71,6 +74,7 @@ export default function OrganizationSidebarLayout({
             <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
               Sonraki adım
             </div>
+
             <div className="mt-1 text-sm leading-6 text-slate-600">
               Bu menü yapısını ileride ek modüllerle genişletebiliriz.
             </div>
