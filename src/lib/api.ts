@@ -79,6 +79,88 @@ export type CreateOrganizationRequest = {
   district?: string;
 };
 
+export type OrganizationPaymentSettingsDto = {
+  id: string;
+  organizationId: string;
+  isEnabled: boolean;
+  period: "Monthly" | "Yearly" | string;
+  amount?: number | null;
+  currency?: string | null;
+  startDateUtc?: string | null;
+  createdAtUtc: string;
+  updatedAtUtc?: string | null;
+};
+
+export type UpsertOrganizationPaymentSettingsRequest = {
+  isEnabled: boolean;
+  period: "Monthly" | "Yearly";
+  amount?: number | null;
+  currency?: string | null;
+  startDateUtc?: string | null;
+};
+
+export type OrganizationMemberPaymentStatusDto = {
+  organizationMemberId: string;
+  userId: string;
+  email: string;
+  role: string;
+  isMemberActive: boolean;
+  lastPaidAtUtc?: string | null;
+  nextDueDateUtc: string;
+  isOverdue: boolean;
+  overdueSinceUtc?: string | null;
+};
+
+export type PaymentMethod = "Cash" | "BankTransfer" | "Card" | "Other";
+
+export type MarkOrganizationMemberPaymentPaidRequest = {
+  paidAtUtc: string;
+  paymentMethod?: PaymentMethod;
+  note?: string | null;
+};
+
+export type RecentOrganizationMemberPaymentDto = {
+  paymentId: string;
+  organizationMemberId: string;
+  userId: string;
+  email: string;
+  role: string;
+  isMemberActive: boolean;
+  amount: number;
+  currency: string;
+  paymentMethod: PaymentMethod | string;
+  periodYear: number;
+  periodMonth?: number | null;
+  periodLabel: string;
+  paidAtUtc: string;
+  markedByUserId: string;
+  markedByEmail: string;
+  note?: string | null;
+};
+
+export type OrganizationPaymentHistoryItemDto = {
+  paymentId: string;
+  organizationId: string;
+  organizationMemberId: string;
+  userId: string;
+  email: string;
+  role: string;
+  isMemberActive: boolean;
+  amount: number;
+  currency: string;
+  paymentMethod: PaymentMethod | string;
+  status: string;
+  periodYear: number;
+  periodMonth?: number | null;
+  periodLabel: string;
+  paidAtUtc: string;
+  markedByUserId: string;
+  markedByEmail: string;
+  note?: string | null;
+  createdAtUtc: string;
+  updatedAtUtc: string;
+};
+
 const ACCESS_TOKEN_KEY = "orgmanager_access_token";
 const REFRESH_TOKEN_KEY = "orgmanager_refresh_token";
 
@@ -176,6 +258,7 @@ async function request<T>(
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
     headers,
+    cache: "no-store",
   });
 
   const data = await parseResponse(response);
@@ -416,6 +499,76 @@ export async function cancelOrganizationJoinRequest(
     {
       method: "DELETE",
     },
+    true
+  );
+}
+
+export async function getOrganizationPaymentSettings(
+  organizationId: string
+): Promise<OrganizationPaymentSettingsDto> {
+  return request<OrganizationPaymentSettingsDto>(
+    `/api/organizations/${organizationId}/payments/settings`,
+    { method: "GET" },
+    true
+  );
+}
+
+export async function upsertOrganizationPaymentSettings(
+  organizationId: string,
+  body: UpsertOrganizationPaymentSettingsRequest
+): Promise<OrganizationPaymentSettingsDto> {
+  return request<OrganizationPaymentSettingsDto>(
+    `/api/organizations/${organizationId}/payments/settings`,
+    {
+      method: "PUT",
+      body: JSON.stringify(body),
+    },
+    true
+  );
+}
+
+export async function getOrganizationMemberPaymentStatuses(
+  organizationId: string
+): Promise<OrganizationMemberPaymentStatusDto[]> {
+  return request<OrganizationMemberPaymentStatusDto[]>(
+    `/api/organizations/${organizationId}/payments/members`,
+    { method: "GET" },
+    true
+  );
+}
+
+export async function markOrganizationMemberPaymentPaid(
+  organizationId: string,
+  organizationMemberId: string,
+  body: MarkOrganizationMemberPaymentPaidRequest
+): Promise<OrganizationMemberPaymentStatusDto> {
+  return request<OrganizationMemberPaymentStatusDto>(
+    `/api/organizations/${organizationId}/payments/members/${organizationMemberId}/mark-paid`,
+    {
+      method: "POST",
+      body: JSON.stringify(body),
+    },
+    true
+  );
+}
+
+export async function getRecentOrganizationPayments(
+  organizationId: string,
+  count: number = 8
+): Promise<RecentOrganizationMemberPaymentDto[]> {
+  return request<RecentOrganizationMemberPaymentDto[]>(
+    `/api/organizations/${organizationId}/payments/recent?count=${count}`,
+    { method: "GET" },
+    true
+  );
+}
+
+export async function getOrganizationPaymentHistory(
+  organizationId: string
+): Promise<OrganizationPaymentHistoryItemDto[]> {
+  return request<OrganizationPaymentHistoryItemDto[]>(
+    `/api/organizations/${organizationId}/payments/history`,
+    { method: "GET" },
     true
   );
 }
