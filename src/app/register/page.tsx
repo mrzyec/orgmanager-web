@@ -51,14 +51,19 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      await register({ email: email.trim(), password });
+      const result = await register({
+        email: email.trim(),
+        password,
+      });
 
       showToast({
-        message: "Kayıt başarılı. Dashboard yönlendiriliyorsun.",
+        message:
+          result.message ??
+          "Kayıt başarılı. Giriş yapmadan önce e-posta adresini doğrulamalısın.",
         type: "success",
       });
 
-      router.push("/dashboard");
+      router.push(`/verify-email?email=${encodeURIComponent(email.trim())}`);
     } catch (e: any) {
       showToast({
         message: e?.message ?? "Kayıt işlemi tamamlanamadı.",

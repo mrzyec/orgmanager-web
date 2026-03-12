@@ -25,6 +25,7 @@ export default function LoginClient() {
   const [loading, setLoading] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [error, setError] = useState("");
+  const [needsVerification, setNeedsVerification] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -96,6 +97,7 @@ export default function LoginClient() {
     setEmail(finalEmail);
     setPassword(finalPassword);
     setError("");
+    setNeedsVerification(false);
     setLoading(true);
 
     try {
@@ -108,7 +110,12 @@ export default function LoginClient() {
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Giriş sırasında bir hata oluştu.";
+
       setError(message);
+
+      if (message.toLowerCase().includes("doğrulamanız gerekiyor")) {
+        setNeedsVerification(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -174,7 +181,18 @@ export default function LoginClient() {
 
           {error ? (
             <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-              {error}
+              <div>{error}</div>
+
+              {needsVerification && email.trim() ? (
+                <div className="mt-2">
+                  <Link
+                    href={`/verify-email?email=${encodeURIComponent(email.trim())}`}
+                    className="font-medium underline"
+                  >
+                    Doğrulama ekranına git
+                  </Link>
+                </div>
+              ) : null}
             </div>
           ) : null}
 

@@ -18,6 +18,25 @@ export type LoginResponse = {
   refreshExpiresAtUtc?: string;
 };
 
+export type RegisterResponse = {
+  message: string;
+  requiresEmailVerification: boolean;
+  email: string;
+  verifyUrl?: string | null;
+};
+
+export type VerifyEmailResponse = {
+  message: string;
+  success?: boolean;
+  alreadyConfirmed?: boolean;
+};
+
+export type ResendVerificationEmailResponse = {
+  message: string;
+  email?: string;
+  verifyUrl?: string | null;
+};
+
 export type MeResponse = {
   userId: string;
   email: string;
@@ -309,8 +328,8 @@ export async function login(requestBody: LoginRequest): Promise<LoginResponse> {
 
 export async function register(
   requestBody: RegisterRequest
-): Promise<LoginResponse | null> {
-  const result = await request<LoginResponse | null>(
+): Promise<RegisterResponse> {
+  return request<RegisterResponse>(
     "/api/auth/register",
     {
       method: "POST",
@@ -318,12 +337,35 @@ export async function register(
     },
     false
   );
+}
 
-  if (result?.accessToken && result?.refreshToken) {
-    setTokens(result.accessToken, result.refreshToken);
-  }
+export async function verifyEmail(
+  email: string,
+  token: string
+): Promise<VerifyEmailResponse> {
+  const params = new URLSearchParams({
+    email,
+    token,
+  });
 
-  return result;
+  return request<VerifyEmailResponse>(
+    `/api/auth/verify-email?${params.toString()}`,
+    { method: "GET" },
+    false
+  );
+}
+
+export async function resendVerificationEmail(
+  email: string
+): Promise<ResendVerificationEmailResponse> {
+  return request<ResendVerificationEmailResponse>(
+    "/api/auth/resend-verification-email",
+    {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    },
+    false
+  );
 }
 
 export async function getMe(): Promise<MeResponse> {
