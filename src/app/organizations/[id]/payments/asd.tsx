@@ -17,7 +17,6 @@ import {
   type PaymentMethod,
   type RecentOrganizationMemberPaymentDto,
 } from "@/lib/api";
-import { useToast } from "@/components/ToastProvider";
 
 type PaymentCollectionType = "monthly" | "yearly" | "disabled";
 type MemberPaymentStatus = "paid" | "partial" | "unpaid" | "overdue";
@@ -94,15 +93,17 @@ type PendingPaymentConfirm = {
   currency: string;
 };
 
+type ToastState = {
+  id: number;
+  message: string;
+  tone: "success" | "error";
+} | null;
+
 const DAY_OPTIONS = Array.from({ length: 31 }, (_, i) => String(i + 1));
 const MONTH_OPTIONS = Array.from({ length: 12 }, (_, i) => String(i + 1));
 const YEAR_OPTIONS = Array.from({ length: 11 }, (_, i) =>
   String(new Date().getFullYear() - 2 + i)
 );
-
-function getDefaultYearString() {
-  return String(new Date().getFullYear());
-}
 
 function formatCurrency(amount: number, currency = "TRY") {
   return new Intl.NumberFormat("tr-TR", {
@@ -149,22 +150,10 @@ function formatYearOnly(date: string | null) {
 }
 
 function getDateParts(date: string | null | undefined) {
-  if (!date) {
-    return {
-      day: "1",
-      month: "1",
-      year: getDefaultYearString(),
-    };
-  }
+  if (!date) return { day: "", month: "", year: "" };
 
   const parsed = new Date(date);
-  if (Number.isNaN(parsed.getTime())) {
-    return {
-      day: "1",
-      month: "1",
-      year: getDefaultYearString(),
-    };
-  }
+  if (Number.isNaN(parsed.getTime())) return { day: "", month: "", year: "" };
 
   return {
     day: String(parsed.getUTCDate()),
@@ -384,71 +373,6 @@ function StatCard({
   );
 }
 
-function DashboardHeroCard({
-  collectionType,
-  activePeriodLabel,
-  totalCollectedAmount,
-  totalExpectedAmount,
-  collectionRate,
-  currency,
-}: {
-  collectionType: PaymentCollectionType;
-  activePeriodLabel: string;
-  totalCollectedAmount: number;
-  totalExpectedAmount: number;
-  collectionRate: number;
-  currency: string;
-}) {
-  return (
-    <div className="overflow-hidden rounded-[28px] border border-slate-200/70 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 p-5 text-white shadow-[0_10px_30px_rgba(15,23,42,0.18)] md:p-6">
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1.35fr_0.85fr]">
-        <div>
-          <div className="inline-flex rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-medium text-slate-100">
-            {getCollectionTypeLabel(collectionType)} aidat sistemi
-          </div>
-
-          <h1 className="mt-3 text-[32px] font-semibold tracking-tight">
-            Aidat ve Ödemeler
-          </h1>
-
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">
-            Üyelerin dönem bazlı borçlarını, tahsilat durumunu, geciken ödemeleri
-            ve son tahsilat hareketlerini tek ekranda yönetin.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 xl:grid-cols-1">
-          <div className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur-sm">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-300">
-              Aktif dönem
-            </div>
-            <div className="mt-1.5 text-[18px] font-semibold">{activePeriodLabel}</div>
-          </div>
-
-          <div className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur-sm">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-300">
-              Tahsil edilen
-            </div>
-            <div className="mt-1.5 text-[18px] font-semibold">
-              {formatCurrency(totalCollectedAmount, currency)}
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur-sm">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-300">
-              Tahsilat oranı
-            </div>
-            <div className="mt-1.5 text-[18px] font-semibold">%{collectionRate.toFixed(0)}</div>
-            <div className="mt-1 text-xs text-slate-300">
-              Beklenen: {formatCurrency(totalExpectedAmount, currency)}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function PaymentConfirmModal({
   open,
   memberDisplayName,
@@ -513,20 +437,35 @@ function PaymentConfirmModal({
   );
 }
 
+function Toast({
+  toast,
+}: {
+  toast: ToastState;
+}) {
+  if (!toast) return null;
+
+  const toneClass =
+    toast.tone === "success"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+      : "border-rose-200 bg-rose-50 text-rose-700";
+
+  return (
+    <div className="fixed right-5 top-5 z-[110]">
+      <div className={`rounded-2xl border px-4 py-3 shadow-lg ${toneClass}`}>
+        <div className="text-sm font-medium">{toast.message}</div>
+      </div>
+    </div>
+  );
+}
+
 export default function OrganizationPaymentsPageClient({
   organizationId,
 }: {
   organizationId: string;
 }) {
-  const { showToast } = useToast();
-
   const [search, setSearch] = useState("");
   const [recentSearch, setRecentSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-
-  const [topDebtorsSearch, setTopDebtorsSearch] = useState("");
-  const [regularPayersSearch, setRegularPayersSearch] = useState("");
-  const [neverPaidSearch, setNeverPaidSearch] = useState("");
 
   const [settings, setSettings] = useState<OrganizationPaymentSettingsDto | null>(null);
   const [plans, setPlans] = useState<OrganizationPaymentPlanDto[]>([]);
@@ -536,7 +475,7 @@ export default function OrganizationPaymentsPageClient({
 
   const [expandedMemberIds, setExpandedMemberIds] = useState<string[]>([]);
   const [periodYearFilterByMember, setPeriodYearFilterByMember] = useState<Record<string, string>>({});
-  const [showOpenOnlyByMember, setShowOpenOnlyByMember] = useState<Record<string, boolean>>({});
+  const [onlyOpenByMember, setOnlyOpenByMember] = useState<Record<string, boolean>>({});
   const [paymentAmountByPeriod, setPaymentAmountByPeriod] = useState<Record<string, string>>({});
   const [payingPeriodId, setPayingPeriodId] = useState<string | null>(null);
   const [pendingPayment, setPendingPayment] = useState<PendingPaymentConfirm | null>(null);
@@ -544,9 +483,9 @@ export default function OrganizationPaymentsPageClient({
   const [settingsForm, setSettingsForm] = useState<SettingsFormState>({
     isEnabled: false,
     period: "Monthly",
-    startDay: "1",
-    startMonth: "1",
-    startYear: getDefaultYearString(),
+    startDay: "",
+    startMonth: "",
+    startYear: "",
   });
 
   const [planForm, setPlanForm] = useState<PlanFormState>({
@@ -560,67 +499,65 @@ export default function OrganizationPaymentsPageClient({
   const [isLoading, setIsLoading] = useState(true);
   const [pageError, setPageError] = useState<string | null>(null);
   const [isSavingAll, setIsSavingAll] = useState(false);
+  const [toast, setToast] = useState<ToastState>(null);
 
-  const loadSettingsAndPlans = useCallback(async () => {
-    const [settingsResult, plansResult] = await Promise.all([
-      getOrganizationPaymentSettings(organizationId),
-      getOrganizationPaymentPlans(organizationId),
-    ]);
+  function showToast(message: string, tone: "success" | "error" = "success") {
+    const next = { id: Date.now(), message, tone } as ToastState;
+    setToast(next);
 
-    setSettings(settingsResult);
-    setPlans(plansResult);
-
-    const dateParts = getDateParts(settingsResult.startDateUtc);
-
-    setSettingsForm({
-      isEnabled: settingsResult.isEnabled,
-      period: settingsResult.period === "Yearly" ? "Yearly" : "Monthly",
-      startDay: dateParts.day,
-      startMonth: dateParts.month,
-      startYear: dateParts.year,
-    });
-
-    const compatiblePlans = plansResult
-      .filter((x) => x.period === (settingsResult.period === "Yearly" ? "Yearly" : "Monthly"))
-      .sort((a, b) => a.year - b.year);
-
-    const selectedYear = dateParts.year ? Number(dateParts.year) : null;
-    const currentYearPlan = selectedYear
-      ? compatiblePlans.find((x) => x.year === selectedYear)
-      : null;
-
-    setPlanForm({
-      amount: currentYearPlan ? String(currentYearPlan.amount) : "",
-      currency:
-        currentYearPlan?.currency === "USD" || currentYearPlan?.currency === "EUR"
-          ? currentYearPlan.currency
-          : "TRY",
-      isActive: currentYearPlan?.isActive ?? true,
-    });
-
-    setSelectedPlanYear(currentYearPlan?.year ?? null);
-  }, [organizationId]);
-
-  const loadStatusesOnly = useCallback(async () => {
-    const memberStatusesResult = await getOrganizationMemberPaymentStatuses(organizationId);
-    setMemberStatuses(memberStatusesResult);
-  }, [organizationId]);
-
-  const loadRecentPaymentsOnly = useCallback(async () => {
-    const recentResult = await getRecentOrganizationPayments(organizationId, 20);
-    setRecentPayments(mapRecentPayments(recentResult));
-  }, [organizationId]);
+    window.clearTimeout((showToast as unknown as { timer?: number }).timer);
+    (showToast as unknown as { timer?: number }).timer = window.setTimeout(() => {
+      setToast((current) => (current?.id === next?.id ? null : current));
+    }, 2800);
+  }
 
   const loadPageData = useCallback(async () => {
     try {
       setIsLoading(true);
       setPageError(null);
 
-      await Promise.all([
-        loadSettingsAndPlans(),
-        loadStatusesOnly(),
-        loadRecentPaymentsOnly(),
-      ]);
+      const [settingsResult, plansResult, memberStatusesResult, recentResult] =
+        await Promise.all([
+          getOrganizationPaymentSettings(organizationId),
+          getOrganizationPaymentPlans(organizationId),
+          getOrganizationMemberPaymentStatuses(organizationId),
+          getRecentOrganizationPayments(organizationId, 20),
+        ]);
+
+      setSettings(settingsResult);
+      setPlans(plansResult);
+      setMemberStatuses(memberStatusesResult);
+      setRecentPayments(mapRecentPayments(recentResult));
+
+      const dateParts = getDateParts(settingsResult.startDateUtc);
+
+      setSettingsForm({
+        isEnabled: settingsResult.isEnabled,
+        period: settingsResult.period === "Yearly" ? "Yearly" : "Monthly",
+        startDay: dateParts.day,
+        startMonth: dateParts.month,
+        startYear: dateParts.year,
+      });
+
+      const compatiblePlans = plansResult
+        .filter((x) => x.period === (settingsResult.period === "Yearly" ? "Yearly" : "Monthly"))
+        .sort((a, b) => a.year - b.year);
+
+      const selectedYear = dateParts.year ? Number(dateParts.year) : null;
+      const currentYearPlan = selectedYear
+        ? compatiblePlans.find((x) => x.year === selectedYear)
+        : null;
+
+      setPlanForm({
+        amount: currentYearPlan ? String(currentYearPlan.amount) : "",
+        currency:
+          currentYearPlan?.currency === "USD" || currentYearPlan?.currency === "EUR"
+            ? currentYearPlan.currency
+            : "TRY",
+        isActive: currentYearPlan?.isActive ?? true,
+      });
+
+      setSelectedPlanYear(currentYearPlan?.year ?? null);
     } catch (error) {
       setPageError(
         error instanceof Error
@@ -630,7 +567,7 @@ export default function OrganizationPaymentsPageClient({
     } finally {
       setIsLoading(false);
     }
-  }, [loadRecentPaymentsOnly, loadSettingsAndPlans, loadStatusesOnly]);
+  }, [organizationId]);
 
   useEffect(() => {
     loadPageData();
@@ -678,11 +615,6 @@ export default function OrganizationPaymentsPageClient({
     return map;
   }, [compatiblePlans]);
 
-  const activeCurrency =
-    compatiblePlanMap.get(Number(settingsForm.startYear))?.currency ??
-    settings?.currency ??
-    "TRY";
-
   const recentPaymentMetrics = useMemo(() => {
     const map = new Map<
       string,
@@ -710,6 +642,11 @@ export default function OrganizationPaymentsPageClient({
 
   const members = useMemo<MemberRow[]>(() => {
     return memberStatuses.map((item) => {
+      const extended = item as OrganizationMemberPaymentStatusDto & {
+        totalOutstandingAmount?: number;
+        overduePeriodCount?: number;
+      };
+
       const planAmountForVisibleYear =
         compatiblePlans.length > 0
           ? compatiblePlans[compatiblePlans.length - 1].amount
@@ -717,7 +654,7 @@ export default function OrganizationPaymentsPageClient({
 
       const paidAmount = item.currentPeriodPaidAmount ?? 0;
       const remainingAmount = Math.max(planAmountForVisibleYear - paidAmount, 0);
-      const totalOpenDebt = item.totalOutstandingAmount ?? remainingAmount;
+      const totalOpenDebt = extended.totalOutstandingAmount ?? remainingAmount;
       const paymentMetric = recentPaymentMetrics.get(item.email);
 
       let status: MemberPaymentStatus;
@@ -746,7 +683,7 @@ export default function OrganizationPaymentsPageClient({
               ? formatYearOnly(item.nextDueDateUtc)
               : "—"
             : formatMonthYear(item.nextDueDateUtc ?? null),
-        overduePeriods: item.overduePeriodCount ?? (item.isOverdue ? 1 : 0),
+        overduePeriods: extended.overduePeriodCount ?? (item.isOverdue ? 1 : 0),
         totalPaymentCount: paymentMetric?.count ?? 0,
       };
     });
@@ -838,7 +775,7 @@ export default function OrganizationPaymentsPageClient({
   const topDebtors = useMemo(() => {
     return [...members]
       .sort((a, b) => b.totalOpenDebt - a.totalOpenDebt)
-      .slice(0, 50);
+      .slice(0, 20);
   }, [members]);
 
   const regularPayers = useMemo(() => {
@@ -853,68 +790,29 @@ export default function OrganizationPaymentsPageClient({
 
         return bDate - aDate;
       })
-      .slice(0, 50);
+      .slice(0, 10);
   }, [members]);
 
   const neverPaidMembers = useMemo(() => {
-    return members.filter((x) => x.totalPaymentCount === 0).slice(0, 50);
+    return members.filter((x) => x.totalPaymentCount === 0).slice(0, 10);
   }, [members]);
-
-  const filteredTopDebtors = useMemo(() => {
-    const q = topDebtorsSearch.trim().toLowerCase();
-
-    return topDebtors.filter((member) => {
-      if (q.length === 0) return true;
-
-      return (
-        member.displayName.toLowerCase().includes(q) ||
-        member.email.toLowerCase().includes(q)
-      );
-    });
-  }, [topDebtors, topDebtorsSearch]);
-
-  const filteredRegularPayers = useMemo(() => {
-    const q = regularPayersSearch.trim().toLowerCase();
-
-    return regularPayers.filter((member) => {
-      if (q.length === 0) return true;
-
-      return (
-        member.displayName.toLowerCase().includes(q) ||
-        member.email.toLowerCase().includes(q)
-      );
-    });
-  }, [regularPayers, regularPayersSearch]);
-
-  const filteredNeverPaidMembers = useMemo(() => {
-    const q = neverPaidSearch.trim().toLowerCase();
-
-    return neverPaidMembers.filter((member) => {
-      if (q.length === 0) return true;
-
-      return (
-        member.displayName.toLowerCase().includes(q) ||
-        member.email.toLowerCase().includes(q)
-      );
-    });
-  }, [neverPaidMembers, neverPaidSearch]);
 
   async function loadMemberPeriods(
     memberId: string,
     options?: {
       yearValue?: string;
-      showOpenOnly?: boolean;
+      onlyOpen?: boolean;
     }
   ) {
     const yearValue = options?.yearValue ?? periodYearFilterByMember[memberId];
-    const showOpenOnly = options?.showOpenOnly ?? (showOpenOnlyByMember[memberId] ?? true);
+    const onlyOpen = options?.onlyOpen ?? (onlyOpenByMember[memberId] ?? true);
 
     const result = await getOrganizationMemberPaymentPeriods(organizationId, memberId, {
       year: yearValue ? Number(yearValue) : undefined,
-      onlyOpen: false,
+      onlyOpen,
     });
 
-    const rawRows: PaymentPeriodRow[] = result
+    const rows: PaymentPeriodRow[] = result
       .map((x: OrganizationMemberPaymentPeriodDto) => ({
         id: x.id,
         periodYear: x.periodYear,
@@ -937,18 +835,13 @@ export default function OrganizationPaymentsPageClient({
         return (a.periodMonth ?? 0) - (b.periodMonth ?? 0);
       });
 
-    const filteredRows = rawRows.filter((row) => {
-      const isPaidRow = row.status === "Paid" || row.remainingAmount <= 0;
-      return showOpenOnly ? !isPaidRow : isPaidRow;
-    });
-
     setPeriodsByMember((prev) => ({
       ...prev,
-      [memberId]: filteredRows,
+      [memberId]: rows,
     }));
 
     const amountDrafts: Record<string, string> = {};
-    for (const row of filteredRows) {
+    for (const row of rows) {
       amountDrafts[row.id] = row.remainingAmount > 0 ? String(row.remainingAmount) : "";
     }
 
@@ -962,7 +855,7 @@ export default function OrganizationPaymentsPageClient({
     const isExpanded = expandedMemberIds.includes(memberId);
 
     if (isExpanded) {
-      setExpandedMemberIds((prev) => prev.filter((x) => x != memberId));
+      setExpandedMemberIds((prev) => prev.filter((x) => x !== memberId));
       return;
     }
 
@@ -972,10 +865,7 @@ export default function OrganizationPaymentsPageClient({
       try {
         await loadMemberPeriods(memberId);
       } catch (error) {
-        showToast({
-          message: error instanceof Error ? error.message : "Dönemler yüklenemedi.",
-          type: "error",
-        });
+        showToast(error instanceof Error ? error.message : "Dönemler yüklenemedi.", "error");
       }
     }
   }
@@ -983,15 +873,9 @@ export default function OrganizationPaymentsPageClient({
   async function handleRefreshMemberPeriods(memberId: string) {
     try {
       await loadMemberPeriods(memberId);
-      showToast({
-        message: "Dönem listesi yenilendi.",
-        type: "info",
-      });
+      showToast("Dönem listesi yenilendi.");
     } catch (error) {
-      showToast({
-        message: error instanceof Error ? error.message : "Dönemler yüklenemedi.",
-        type: "error",
-      });
+      showToast(error instanceof Error ? error.message : "Dönemler yüklenemedi.", "error");
     }
   }
 
@@ -1005,19 +889,16 @@ export default function OrganizationPaymentsPageClient({
       try {
         await loadMemberPeriods(memberId, {
           yearValue: value,
-          showOpenOnly: showOpenOnlyByMember[memberId] ?? true,
+          onlyOpen: onlyOpenByMember[memberId] ?? true,
         });
       } catch (error) {
-        showToast({
-          message: error instanceof Error ? error.message : "Dönemler yüklenemedi.",
-          type: "error",
-        });
+        showToast(error instanceof Error ? error.message : "Dönemler yüklenemedi.", "error");
       }
     }
   }
 
-  async function handleShowOpenOnlyToggle(memberId: string, nextValue: boolean) {
-    setShowOpenOnlyByMember((prev) => ({
+  async function handleOnlyOpenToggle(memberId: string, nextValue: boolean) {
+    setOnlyOpenByMember((prev) => ({
       ...prev,
       [memberId]: nextValue,
     }));
@@ -1026,13 +907,10 @@ export default function OrganizationPaymentsPageClient({
       try {
         await loadMemberPeriods(memberId, {
           yearValue: periodYearFilterByMember[memberId],
-          showOpenOnly: nextValue,
+          onlyOpen: nextValue,
         });
       } catch (error) {
-        showToast({
-          message: error instanceof Error ? error.message : "Dönemler yüklenemedi.",
-          type: "error",
-        });
+        showToast(error instanceof Error ? error.message : "Dönemler yüklenemedi.", "error");
       }
     }
   }
@@ -1051,21 +929,17 @@ export default function OrganizationPaymentsPageClient({
         : null;
 
       if (settingsForm.isEnabled && !startDateIso) {
-        showToast({
-          message:
-            settingsForm.period === "Yearly"
-              ? "Geçerli bir başlangıç yılı seçmelisin."
-              : "Geçerli bir başlangıç tarihi seçmelisin.",
-          type: "error",
-        });
+        showToast(
+          settingsForm.period === "Yearly"
+            ? "Geçerli bir başlangıç yılı seçmelisin."
+            : "Geçerli bir başlangıç tarihi seçmelisin.",
+          "error"
+        );
         return;
       }
 
       if (settingsForm.isEnabled && planForm.amount.trim() === "") {
-        showToast({
-          message: "Aidat sistemi açıkken tutar zorunludur.",
-          type: "error",
-        });
+        showToast("Aidat sistemi açıkken tutar zorunludur.", "error");
         return;
       }
 
@@ -1073,10 +947,7 @@ export default function OrganizationPaymentsPageClient({
         planForm.amount.trim() === "" ? null : Number(planForm.amount);
 
       if (settingsForm.isEnabled && (!Number.isFinite(numericAmount) || numericAmount! < 0)) {
-        showToast({
-          message: "Geçerli bir aidat tutarı gir.",
-          type: "error",
-        });
+        showToast("Geçerli bir aidat tutarı gir.", "error");
         return;
       }
 
@@ -1099,35 +970,20 @@ export default function OrganizationPaymentsPageClient({
         });
       }
 
-      await Promise.all([
-        loadSettingsAndPlans(),
-        loadStatusesOnly(),
-        loadRecentPaymentsOnly(),
-      ]);
-
-      setPeriodsByMember({});
+      await loadPageData();
 
       if (!settingsForm.isEnabled) {
-        showToast({
-          message: "Aidat sistemi kapatıldı.",
-          type: "success",
-        });
+        showToast("Aidat sistemi kapatıldı.");
       } else if (settingsForm.period === "Monthly") {
-        showToast({
-          message: "Aidat sistemi aylık olarak güncellendi.",
-          type: "success",
-        });
+        showToast("Aidat sistemi aylık olarak güncellendi.");
       } else {
-        showToast({
-          message: "Aidat sistemi yıllık olarak güncellendi.",
-          type: "success",
-        });
+        showToast("Aidat sistemi yıllık olarak güncellendi.");
       }
     } catch (error) {
-      showToast({
-        message: error instanceof Error ? error.message : "Kayıt sırasında bir hata oluştu.",
-        type: "error",
-      });
+      showToast(
+        error instanceof Error ? error.message : "Kayıt sırasında bir hata oluştu.",
+        "error"
+      );
     } finally {
       setIsSavingAll(false);
     }
@@ -1141,10 +997,7 @@ export default function OrganizationPaymentsPageClient({
     const amount = Number(amountText);
 
     if (!Number.isFinite(amount) || amount <= 0) {
-      showToast({
-        message: "Geçerli bir ödeme tutarı gir.",
-        type: "error",
-      });
+      showToast("Geçerli bir ödeme tutarı gir.", "error");
       return;
     }
 
@@ -1182,24 +1035,12 @@ export default function OrganizationPaymentsPageClient({
 
       setPendingPayment(null);
 
-      await Promise.all([
-        loadStatusesOnly(),
-        loadRecentPaymentsOnly(),
-        loadMemberPeriods(memberId, {
-          yearValue: periodYearFilterByMember[memberId],
-          showOpenOnly: showOpenOnlyByMember[memberId] ?? true,
-        }),
-      ]);
+      await loadPageData();
+      await loadMemberPeriods(memberId);
 
-      showToast({
-        message: `${memberName} için ${periodName} ödemesi kaydedildi.`,
-        type: "success",
-      });
+      showToast(`${memberName} için ${periodName} ödemesi kaydedildi.`);
     } catch (error) {
-      showToast({
-        message: error instanceof Error ? error.message : "Ödeme kaydedilemedi.",
-        type: "error",
-      });
+      showToast(error instanceof Error ? error.message : "Ödeme kaydedilemedi.", "error");
     } finally {
       setPayingPeriodId(null);
     }
@@ -1220,6 +1061,8 @@ export default function OrganizationPaymentsPageClient({
 
   return (
     <>
+      <Toast toast={toast} />
+
       <PaymentConfirmModal
         open={pendingPayment != null}
         memberDisplayName={pendingPayment?.memberDisplayName ?? ""}
@@ -1232,14 +1075,52 @@ export default function OrganizationPaymentsPageClient({
       />
 
       <div className="space-y-6 rounded-[32px] bg-[#e5e7eb] p-3">
-        <DashboardHeroCard
-          collectionType={collectionType}
-          activePeriodLabel={activePeriodLabel}
-          totalCollectedAmount={totalCollectedAmount}
-          totalExpectedAmount={totalExpectedAmount}
-          collectionRate={collectionRate}
-          currency={activeCurrency}
-        />
+        <div className="overflow-hidden rounded-[28px] border border-slate-200/70 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 p-5 text-white shadow-[0_10px_30px_rgba(15,23,42,0.18)] md:p-6">
+          <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1.35fr_0.85fr]">
+            <div>
+              <div className="inline-flex rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-medium text-slate-100">
+                {getCollectionTypeLabel(collectionType)} aidat sistemi
+              </div>
+
+              <h1 className="mt-3 text-[32px] font-semibold tracking-tight">
+                Aidat ve Ödemeler
+              </h1>
+
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">
+                Üyelerin dönem bazlı borçlarını, tahsilat durumunu, geciken ödemeleri
+                ve aidat planlarını tek ekrandan yönetin.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 xl:grid-cols-1">
+              <div className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur-sm">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-300">
+                  Aktif dönem
+                </div>
+                <div className="mt-1.5 text-[18px] font-semibold">{activePeriodLabel}</div>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur-sm">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-300">
+                  Tahsil edilen
+                </div>
+                <div className="mt-1.5 text-[18px] font-semibold">
+                  {formatCurrency(totalCollectedAmount, compatiblePlanMap.get(Number(settingsForm.startYear))?.currency ?? "TRY")}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur-sm">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-300">
+                  Tahsilat oranı
+                </div>
+                <div className="mt-1.5 text-[18px] font-semibold">%{collectionRate.toFixed(0)}</div>
+                <div className="mt-1 text-xs text-slate-300">
+                  Beklenen: {formatCurrency(totalExpectedAmount, compatiblePlanMap.get(Number(settingsForm.startYear))?.currency ?? "TRY")}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
 
         {pageError ? (
           <div className="rounded-[28px] border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
@@ -1288,7 +1169,7 @@ export default function OrganizationPaymentsPageClient({
 
           <StatCard
             title="Kalan Alacak"
-            value={formatCurrency(totalRemainingAmount, activeCurrency)}
+            value={formatCurrency(totalRemainingAmount, compatiblePlanMap.get(Number(settingsForm.startYear))?.currency ?? "TRY")}
             subtitle={`Bekleyen: ${String(unpaidCount)}`}
             accentClass="bg-indigo-500"
           />
@@ -1298,18 +1179,8 @@ export default function OrganizationPaymentsPageClient({
           <SectionCard
             title="Aidat Sistemi"
             description="Aidat tipini seç. Aylıkta tam tarih, yıllıkta sadece yıl esas alınır."
-            rightSlot={
-              <button
-                type="button"
-                onClick={handleSaveAll}
-                disabled={isSavingAll}
-                className="rounded-2xl bg-slate-900 px-5 py-3 text-sm font-medium text-white transition hover:bg-slate-800 disabled:opacity-60"
-              >
-                {isSavingAll ? "Uygulanıyor..." : "Aidat Ayarlarını Uygula"}
-              </button>
-            }
           >
-            <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 xl:grid-cols-[0.9fr_0.9fr_1.1fr_auto]">
               <label className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
                 <div className="text-sm font-medium text-slate-700">Aidat aktif</div>
                 <select
@@ -1327,11 +1198,7 @@ export default function OrganizationPaymentsPageClient({
                 </select>
               </label>
 
-              <label
-                className={`rounded-2xl border border-slate-200 bg-slate-50 p-3 ${
-                  controlsDisabled ? "opacity-60" : ""
-                }`}
-              >
+              <label className={`rounded-2xl border border-slate-200 bg-slate-50 p-3 ${controlsDisabled ? "opacity-60" : ""}`}>
                 <div className="text-sm font-medium text-slate-700">Aidat tipi</div>
                 <select
                   value={settingsForm.period}
@@ -1341,8 +1208,8 @@ export default function OrganizationPaymentsPageClient({
                     setSettingsForm((prev) => ({
                       ...prev,
                       period: nextPeriod,
-                      startDay: "1",
-                      startMonth: "1",
+                      startDay: nextPeriod === "Yearly" ? "" : prev.startDay || "1",
+                      startMonth: nextPeriod === "Yearly" ? "" : prev.startMonth || "1",
                     }));
                   }}
                   disabled={controlsDisabled}
@@ -1353,11 +1220,7 @@ export default function OrganizationPaymentsPageClient({
                 </select>
               </label>
 
-              <div
-                className={`rounded-2xl border border-slate-200 bg-slate-50 p-3 ${
-                  controlsDisabled ? "opacity-60" : ""
-                }`}
-              >
+              <div className={`rounded-2xl border border-slate-200 bg-slate-50 p-3 ${controlsDisabled ? "opacity-60" : ""}`}>
                 <div className="text-sm font-medium text-slate-700">{startDateLabel}</div>
 
                 <div className="mt-2 grid grid-cols-3 gap-2">
@@ -1372,6 +1235,7 @@ export default function OrganizationPaymentsPageClient({
                     disabled={controlsDisabled || settingsForm.period === "Yearly"}
                     className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none disabled:bg-slate-100 disabled:text-slate-400"
                   >
+                    <option value="">{settingsForm.period === "Yearly" ? "—" : "Gün"}</option>
                     {DAY_OPTIONS.map((day) => (
                       <option key={day} value={day}>
                         {day}
@@ -1390,6 +1254,7 @@ export default function OrganizationPaymentsPageClient({
                     disabled={controlsDisabled || settingsForm.period === "Yearly"}
                     className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none disabled:bg-slate-100 disabled:text-slate-400"
                   >
+                    <option value="">{settingsForm.period === "Yearly" ? "—" : "Ay"}</option>
                     {MONTH_OPTIONS.map((month) => (
                       <option key={month} value={month}>
                         {month}
@@ -1408,6 +1273,7 @@ export default function OrganizationPaymentsPageClient({
                     disabled={controlsDisabled}
                     className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none disabled:bg-slate-100 disabled:text-slate-400"
                   >
+                    <option value="">Yıl</option>
                     {YEAR_OPTIONS.map((year) => (
                       <option key={year} value={year}>
                         {year}
@@ -1422,13 +1288,20 @@ export default function OrganizationPaymentsPageClient({
                     : "Borç üretimi bu tarihten itibaren başlar."}
                 </p>
               </div>
+
+              <div className="flex items-end xl:justify-end">
+                <button
+                  type="button"
+                  onClick={handleSaveAll}
+                  disabled={isSavingAll}
+                  className="rounded-2xl bg-slate-900 px-5 py-3 text-sm font-medium text-white transition hover:bg-slate-800 disabled:opacity-60"
+                >
+                  {isSavingAll ? "Uygulanıyor..." : "Aidat Ayarlarını Uygula"}
+                </button>
+              </div>
             </div>
 
-            <div
-              className={`mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3 ${
-                controlsDisabled ? "opacity-60" : ""
-              }`}
-            >
+            <div className={`mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3 ${controlsDisabled ? "opacity-60" : ""}`}>
               <div className="mb-3">
                 <div className="text-sm font-semibold text-slate-900">Aidat Planı</div>
                 <p className="mt-1 text-sm text-slate-500">{planDescription}</p>
@@ -1619,15 +1492,24 @@ export default function OrganizationPaymentsPageClient({
                             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:min-w-[520px]">
                               <CompactSummaryItem
                                 label="Beklenen"
-                                value={formatCurrency(member.expectedAmount, activeCurrency)}
+                                value={formatCurrency(
+                                  member.expectedAmount,
+                                  compatiblePlanMap.get(Number(settingsForm.startYear))?.currency ?? "TRY"
+                                )}
                               />
                               <CompactSummaryItem
                                 label="Bu dönem ödenen"
-                                value={formatCurrency(member.paidAmount, activeCurrency)}
+                                value={formatCurrency(
+                                  member.paidAmount,
+                                  compatiblePlanMap.get(Number(settingsForm.startYear))?.currency ?? "TRY"
+                                )}
                               />
                               <CompactSummaryItem
                                 label="Toplam açık borç"
-                                value={formatCurrency(member.totalOpenDebt, activeCurrency)}
+                                value={formatCurrency(
+                                  member.totalOpenDebt,
+                                  compatiblePlanMap.get(Number(settingsForm.startYear))?.currency ?? "TRY"
+                                )}
                               />
                               <CompactSummaryItem
                                 label="Durum"
@@ -1657,14 +1539,12 @@ export default function OrganizationPaymentsPageClient({
                                 <label className="flex items-center gap-2 pt-6">
                                   <input
                                     type="checkbox"
-                                    checked={showOpenOnlyByMember[member.memberId] ?? true}
+                                    checked={onlyOpenByMember[member.memberId] ?? true}
                                     onChange={(e) =>
-                                      handleShowOpenOnlyToggle(member.memberId, e.target.checked)
+                                      handleOnlyOpenToggle(member.memberId, e.target.checked)
                                     }
                                   />
-                                  <span className="text-sm text-slate-700">
-                                    Sadece açık dönemler
-                                  </span>
+                                  <span className="text-sm text-slate-700">Sadece açık borçlar</span>
                                 </label>
 
                                 <div className="pt-5">
@@ -1851,23 +1731,15 @@ export default function OrganizationPaymentsPageClient({
             <SectionCard
               title="En Yüksek Kalan Borç"
               description="Üye bazlı toplam açık borç listesi."
-              rightSlot={
-                <input
-                  value={topDebtorsSearch}
-                  onChange={(e) => setTopDebtorsSearch(e.target.value)}
-                  placeholder="İsim veya mail ile ara"
-                  className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none md:w-72"
-                />
-              }
             >
               <div className="max-h-[320px] overflow-y-auto pr-1">
                 <div className="space-y-3">
-                  {filteredTopDebtors.length === 0 ? (
+                  {topDebtors.length === 0 ? (
                     <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-500">
-                      Filtreye uygun kayıt yok.
+                      Gösterilecek borç kaydı yok.
                     </div>
                   ) : (
-                    filteredTopDebtors.map((member, index) => (
+                    topDebtors.map((member, index) => (
                       <div
                         key={member.memberId}
                         className="flex items-center justify-between gap-3 rounded-[22px] border border-slate-200 bg-slate-50 p-3"
@@ -1887,7 +1759,10 @@ export default function OrganizationPaymentsPageClient({
                         </div>
 
                         <div className="text-right text-sm font-semibold text-slate-900">
-                          {formatCurrency(member.totalOpenDebt, activeCurrency)}
+                          {formatCurrency(
+                            member.totalOpenDebt,
+                            compatiblePlanMap.get(Number(settingsForm.startYear))?.currency ?? "TRY"
+                          )}
                         </div>
                       </div>
                     ))
@@ -1899,23 +1774,15 @@ export default function OrganizationPaymentsPageClient({
             <SectionCard
               title="Düzenli Ödeyenler"
               description="Son ödeme kayıt sayısına göre sıralanır."
-              rightSlot={
-                <input
-                  value={regularPayersSearch}
-                  onChange={(e) => setRegularPayersSearch(e.target.value)}
-                  placeholder="İsim veya mail ile ara"
-                  className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none md:w-72"
-                />
-              }
             >
               <div className="max-h-[280px] overflow-y-auto pr-1">
                 <div className="space-y-3">
-                  {filteredRegularPayers.length === 0 ? (
+                  {regularPayers.length === 0 ? (
                     <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-500">
-                      Filtreye uygun kayıt yok.
+                      Henüz ödeme verisi yok.
                     </div>
                   ) : (
-                    filteredRegularPayers.map((member, index) => (
+                    regularPayers.map((member, index) => (
                       <div
                         key={member.memberId}
                         className="flex items-center justify-between gap-3 rounded-[22px] border border-slate-200 bg-slate-50 p-3"
@@ -1947,23 +1814,15 @@ export default function OrganizationPaymentsPageClient({
             <SectionCard
               title="Hiç Ödeme Yapmayanlar"
               description="İlk tahsilatı bekleyen üyeler."
-              rightSlot={
-                <input
-                  value={neverPaidSearch}
-                  onChange={(e) => setNeverPaidSearch(e.target.value)}
-                  placeholder="İsim veya mail ile ara"
-                  className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none md:w-72"
-                />
-              }
             >
               <div className="max-h-[280px] overflow-y-auto pr-1">
                 <div className="space-y-3">
-                  {filteredNeverPaidMembers.length === 0 ? (
+                  {neverPaidMembers.length === 0 ? (
                     <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-500">
-                      Filtreye uygun kayıt yok.
+                      Tüm üyelerde en az bir ödeme kaydı bulunuyor.
                     </div>
                   ) : (
-                    filteredNeverPaidMembers.map((member, index) => (
+                    neverPaidMembers.map((member, index) => (
                       <div
                         key={member.memberId}
                         className="flex items-center justify-between gap-3 rounded-[22px] border border-slate-200 bg-slate-50 p-3"

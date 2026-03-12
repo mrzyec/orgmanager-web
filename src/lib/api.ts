@@ -128,10 +128,12 @@ export type OrganizationMemberPaymentStatusDto = {
   role: string;
   isMemberActive: boolean;
   lastPaidAtUtc?: string | null;
-  nextDueDateUtc: string;
+  nextDueDateUtc?: string | null;
   currentPeriodPaidAmount: number;
   isOverdue: boolean;
   overdueSinceUtc?: string | null;
+  totalOutstandingAmount: number;
+  overduePeriodCount: number;
 };
 
 export type OrganizationMemberPaymentPeriodDto = {
