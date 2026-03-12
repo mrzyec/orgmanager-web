@@ -139,7 +139,18 @@ export type UpsertOrganizationPaymentPlanRequest = {
   currency: string;
   isActive: boolean;
 };
-
+export async function deleteOrganizationPaymentPlan(
+  organizationId: string,
+  year: number
+): Promise<void> {
+  await request<null>(
+    `/api/organizations/${organizationId}/payments/plans/${year}`,
+    {
+      method: "DELETE",
+    },
+    true
+  );
+}
 export type OrganizationMemberPaymentStatusDto = {
   organizationMemberId: string;
   userId: string;

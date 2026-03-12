@@ -46,10 +46,19 @@ export default function LoginPage() {
 
       router.push("/dashboard");
     } catch (e: any) {
+      const message = e?.message ?? "Giriş yapılamadı.";
+
       showToast({
-        message: e?.message ?? "Giriş yapılamadı.",
+        message,
         type: "error",
       });
+
+      if (
+        typeof message === "string" &&
+        message.toLowerCase().includes("doğrulamanız gerekiyor")
+      ) {
+        router.push(`/verify-email?email=${encodeURIComponent(email.trim())}`);
+      }
     } finally {
       setLoading(false);
     }

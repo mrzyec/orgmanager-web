@@ -51,10 +51,7 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      const result = await register({
-        email: email.trim(),
-        password,
-      });
+      const result = await register({ email: email.trim(), password });
 
       showToast({
         message:

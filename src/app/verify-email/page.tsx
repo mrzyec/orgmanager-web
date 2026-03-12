@@ -104,8 +104,8 @@ export default function VerifyEmailPage() {
 
             <p className="mt-4 max-w-xl text-sm leading-7 text-white/75">
               Hesabını kullanmaya başlamadan önce e-posta adresini doğrulaman gerekiyor.
-              Doğrulama bağlantın varsa aşağıdan işlemi tamamlayabilir, bağlantı yoksa
-              yeniden oluşturabilirsin.
+              Doğrulama bağlantın geldiyse işlemi tamamlayabilir, gelmediyse yeniden
+              doğrulama bağlantısı oluşturabilirsin.
             </p>
           </section>
 

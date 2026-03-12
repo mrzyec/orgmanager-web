@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
+  deleteOrganizationPaymentPlan,
   getOrganizationMemberPaymentPeriods,
   getOrganizationMemberPaymentStatuses,
   getOrganizationPaymentPlans,
@@ -560,6 +561,8 @@ export default function OrganizationPaymentsPageClient({
   const [isLoading, setIsLoading] = useState(true);
   const [pageError, setPageError] = useState<string | null>(null);
   const [isSavingAll, setIsSavingAll] = useState(false);
+  const [deleteArmedPlanYear, setDeleteArmedPlanYear] = useState<number | null>(null);
+  const [deletingPlanYear, setDeletingPlanYear] = useState<number | null>(null);
 
   const loadSettingsAndPlans = useCallback(async () => {
     const [settingsResult, plansResult] = await Promise.all([
@@ -678,7 +681,52 @@ export default function OrganizationPaymentsPageClient({
     return map;
   }, [compatiblePlans]);
 
+  const activePeriodInfo = useMemo(() => {
+    if (!settings?.isEnabled || !settings.startDateUtc) {
+      return {
+        label: "—",
+        planYear: null as number | null,
+      };
+    }
+
+    const now = new Date();
+    const start = new Date(settings.startDateUtc);
+
+    if (settings.period === "Yearly") {
+      return {
+        label: new Intl.DateTimeFormat("tr-TR", { year: "numeric" }).format(now),
+        planYear: now.getUTCFullYear(),
+      };
+    }
+
+    if (now < start) {
+      return {
+        label: formatMonthYear(settings.startDateUtc),
+        planYear: start.getUTCFullYear(),
+      };
+    }
+
+    return {
+      label: new Intl.DateTimeFormat("tr-TR", {
+        month: "long",
+        year: "numeric",
+      }).format(now),
+      planYear: now.getUTCFullYear(),
+    };
+  }, [settings]);
+
+  const activePlan = useMemo(() => {
+    if (!settings?.isEnabled || activePeriodInfo.planYear == null) return null;
+
+    return (
+      plans.find(
+        (x) => x.period === settings.period && x.year === activePeriodInfo.planYear
+      ) ?? null
+    );
+  }, [plans, settings, activePeriodInfo.planYear]);
+
   const activeCurrency =
+    activePlan?.currency ??
     compatiblePlanMap.get(Number(settingsForm.startYear))?.currency ??
     settings?.currency ??
     "TRY";
@@ -709,21 +757,19 @@ export default function OrganizationPaymentsPageClient({
   }, [recentPayments]);
 
   const members = useMemo<MemberRow[]>(() => {
-    return memberStatuses.map((item) => {
-      const planAmountForVisibleYear =
-        compatiblePlans.length > 0
-          ? compatiblePlans[compatiblePlans.length - 1].amount
-          : 0;
+    const currentPeriodExpectedAmount = activePlan?.amount ?? 0;
 
+    return memberStatuses.map((item) => {
       const paidAmount = item.currentPeriodPaidAmount ?? 0;
-      const remainingAmount = Math.max(planAmountForVisibleYear - paidAmount, 0);
+      const remainingAmount = Math.max(currentPeriodExpectedAmount - paidAmount, 0);
       const totalOpenDebt = item.totalOutstandingAmount ?? remainingAmount;
       const paymentMetric = recentPaymentMetrics.get(item.email);
 
       let status: MemberPaymentStatus;
       if (item.isOverdue && paidAmount > 0) status = "partial";
       else if (item.isOverdue) status = "overdue";
-      else if (paidAmount >= planAmountForVisibleYear && planAmountForVisibleYear > 0) status = "paid";
+      else if (paidAmount >= currentPeriodExpectedAmount && currentPeriodExpectedAmount > 0)
+        status = "paid";
       else if (paidAmount > 0) status = "partial";
       else status = "unpaid";
 
@@ -734,7 +780,7 @@ export default function OrganizationPaymentsPageClient({
         role: item.role,
         isActive: item.isMemberActive,
         status,
-        expectedAmount: planAmountForVisibleYear,
+        expectedAmount: currentPeriodExpectedAmount,
         paidAmount,
         remainingAmount,
         totalOpenDebt,
@@ -750,7 +796,7 @@ export default function OrganizationPaymentsPageClient({
         totalPaymentCount: paymentMetric?.count ?? 0,
       };
     });
-  }, [memberStatuses, compatiblePlans, recentPaymentMetrics, settingsForm.period]);
+  }, [memberStatuses, recentPaymentMetrics, settingsForm.period, activePlan]);
 
   const filteredMembers = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -792,8 +838,8 @@ export default function OrganizationPaymentsPageClient({
   }, [recentPayments, recentSearch]);
 
   const totalCollectedAmount = useMemo(
-    () => recentPayments.reduce((sum, x) => sum + x.amount, 0),
-    [recentPayments]
+    () => members.reduce((sum, x) => sum + x.paidAmount, 0),
+    [members]
   );
 
   const totalExpectedAmount = useMemo(
@@ -809,25 +855,7 @@ export default function OrganizationPaymentsPageClient({
   const collectionRate =
     totalExpectedAmount > 0 ? (totalCollectedAmount / totalExpectedAmount) * 100 : 0;
 
-  const activePeriodLabel = useMemo(() => {
-    if (!settings?.isEnabled || !settings.startDateUtc) return "—";
-
-    const now = new Date();
-    const start = new Date(settings.startDateUtc);
-
-    if (settings.period === "Yearly") {
-      return new Intl.DateTimeFormat("tr-TR", { year: "numeric" }).format(now);
-    }
-
-    if (now < start) {
-      return formatMonthYear(settings.startDateUtc);
-    }
-
-    return new Intl.DateTimeFormat("tr-TR", {
-      month: "long",
-      year: "numeric",
-    }).format(now);
-  }, [settings]);
+  const activePeriodLabel = activePeriodInfo.label;
 
   const overdueCount = members.filter((x) => x.status === "overdue").length;
   const partialCount = members.filter((x) => x.status === "partial").length;
@@ -962,7 +990,7 @@ export default function OrganizationPaymentsPageClient({
     const isExpanded = expandedMemberIds.includes(memberId);
 
     if (isExpanded) {
-      setExpandedMemberIds((prev) => prev.filter((x) => x != memberId));
+      setExpandedMemberIds((prev) => prev.filter((x) => x !== memberId));
       return;
     }
 
@@ -1106,6 +1134,7 @@ export default function OrganizationPaymentsPageClient({
       ]);
 
       setPeriodsByMember({});
+      setDeleteArmedPlanYear(null);
 
       if (!settingsForm.isEnabled) {
         showToast({
@@ -1130,6 +1159,49 @@ export default function OrganizationPaymentsPageClient({
       });
     } finally {
       setIsSavingAll(false);
+    }
+  }
+
+  async function handleDeletePlan(plan: OrganizationPaymentPlanDto) {
+    if (deletingPlanYear !== null) return;
+
+    if (deleteArmedPlanYear !== plan.year) {
+      setDeleteArmedPlanYear(plan.year);
+
+      showToast({
+        message: `${plan.year} planını silmek için tekrar tıkla.`,
+        type: "info",
+      });
+
+      return;
+    }
+
+    try {
+      setDeletingPlanYear(plan.year);
+
+      await deleteOrganizationPaymentPlan(organizationId, plan.year);
+
+      await Promise.all([
+        loadSettingsAndPlans(),
+        loadStatusesOnly(),
+        loadRecentPaymentsOnly(),
+      ]);
+
+      setPeriodsByMember({});
+      setDeleteArmedPlanYear(null);
+
+      showToast({
+        message: `${plan.year} aidat planı silindi.`,
+        type: "success",
+      });
+    } catch (error) {
+      showToast({
+        message:
+          error instanceof Error ? error.message : "Aidat planı silinemedi.",
+        type: "error",
+      });
+    } finally {
+      setDeletingPlanYear(null);
     }
   }
 
@@ -1431,7 +1503,12 @@ export default function OrganizationPaymentsPageClient({
             >
               <div className="mb-3">
                 <div className="text-sm font-semibold text-slate-900">Aidat Planı</div>
-                <p className="mt-1 text-sm text-slate-500">{planDescription}</p>
+                <div className="mt-1 space-y-2">
+                  <p className="text-sm text-slate-500">{planDescription}</p>
+                  <p className="text-xs text-amber-700">
+                    Not: Bu yıl için ödeme alınmışsa plan silinemez.
+                  </p>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_0.9fr]">
@@ -1489,12 +1566,13 @@ export default function OrganizationPaymentsPageClient({
                       <th className="px-3 py-3">Tutar</th>
                       <th className="px-3 py-3">Durum</th>
                       <th className="px-3 py-3">Güncellendi</th>
+                      <th className="px-3 py-3 text-right">İşlem</th>
                     </tr>
                   </thead>
                   <tbody>
                     {compatiblePlans.length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="px-3 py-6 text-center text-slate-500">
+                        <td colSpan={6} className="px-3 py-6 text-center text-slate-500">
                           Bu aidat tipine uygun plan henüz tanımlanmadı.
                         </td>
                       </tr>
@@ -1515,6 +1593,24 @@ export default function OrganizationPaymentsPageClient({
                           </td>
                           <td className="px-3 py-3">{plan.isActive ? "Aktif" : "Pasif"}</td>
                           <td className="px-3 py-3">{formatDate(plan.updatedAtUtc)}</td>
+                          <td className="px-3 py-3 text-right">
+                            <button
+                              type="button"
+                              onClick={() => handleDeletePlan(plan)}
+                              disabled={deletingPlanYear === plan.year}
+                              className={`rounded-2xl px-3 py-2 text-xs font-medium transition ${
+                                deleteArmedPlanYear === plan.year
+                                  ? "border border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100"
+                                  : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                              } disabled:cursor-not-allowed disabled:opacity-60`}
+                            >
+                              {deletingPlanYear === plan.year
+                                ? "Siliniyor..."
+                                : deleteArmedPlanYear === plan.year
+                                ? "Eminim, sil"
+                                : "Planı sil"}
+                            </button>
+                          </td>
                         </tr>
                       ))
                     )}
@@ -1998,5 +2094,4 @@ export default function OrganizationPaymentsPageClient({
       </div>
     </>
   );
-}//
-//
+}
