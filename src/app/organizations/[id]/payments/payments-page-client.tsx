@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
+  addOrganizationPaymentPlanRevision,
   deleteOrganizationPaymentPlan,
   getOrganizationMemberPaymentPeriods,
   getOrganizationMemberPaymentStatuses,
@@ -14,11 +15,13 @@ import {
   type OrganizationMemberPaymentPeriodDto,
   type OrganizationMemberPaymentStatusDto,
   type OrganizationPaymentPlanDto,
+  type OrganizationPaymentPlanRevisionDto,
   type OrganizationPaymentSettingsDto,
   type PaymentMethod,
   type RecentOrganizationMemberPaymentDto,
 } from "@/lib/api";
 import { useToast } from "@/components/ToastProvider";
+import ActionConfirmModal from "@/components/ActionConfirmModal";
 
 type PaymentCollectionType = "monthly" | "yearly" | "disabled";
 type MemberPaymentStatus = "paid" | "partial" | "unpaid" | "overdue";
@@ -33,6 +36,15 @@ type SettingsFormState = {
 };
 
 type PlanFormState = {
+  amount: string;
+  currency: "TRY" | "USD" | "EUR";
+  isActive: boolean;
+};
+
+type RevisionFormState = {
+  effectiveDay: string;
+  effectiveMonth: string;
+  effectiveYear: string;
   amount: string;
   currency: "TRY" | "USD" | "EUR";
   isActive: boolean;
@@ -95,6 +107,11 @@ type PendingPaymentConfirm = {
   currency: string;
 };
 
+type PendingPlanDeleteConfirm = {
+  year: number;
+  period: "Monthly" | "Yearly";
+};
+
 const DAY_OPTIONS = Array.from({ length: 31 }, (_, i) => String(i + 1));
 const MONTH_OPTIONS = Array.from({ length: 12 }, (_, i) => String(i + 1));
 const YEAR_OPTIONS = Array.from({ length: 11 }, (_, i) =>
@@ -147,6 +164,14 @@ function formatYearOnly(date: string | null) {
   return new Intl.DateTimeFormat("tr-TR", {
     year: "numeric",
   }).format(parsed);
+}
+
+function formatRevisionDateLabel(
+  value: string,
+  _period: "Monthly" | "Yearly" | string
+) {
+  if (!value) return "—";
+  return formatDate(value);
 }
 
 function getDateParts(date: string | null | undefined) {
@@ -213,6 +238,63 @@ function buildIsoFromDateParts(
   }
 
   return constructed.toISOString();
+}
+
+function buildRevisionIsoFromDateParts(
+  day: string,
+  month: string,
+  year: string,
+  period: "Monthly" | "Yearly"
+) {
+  if (!year) return null;
+
+  const numericYear = Number(year);
+  const numericMonth = Number(month);
+  const numericDay = Number(day);
+
+  if (
+    !Number.isInteger(numericYear) ||
+    !Number.isInteger(numericMonth) ||
+    !Number.isInteger(numericDay)
+  ) {
+    return null;
+  }
+
+  const constructed = new Date(
+    Date.UTC(
+      numericYear,
+      numericMonth - 1,
+      period === "Yearly" ? numericDay : 1,
+      12,
+      0,
+      0
+    )
+  );
+
+  if (Number.isNaN(constructed.getTime())) return null;
+
+  if (period === "Yearly") {
+    if (
+      constructed.getUTCFullYear() !== numericYear ||
+      constructed.getUTCMonth() !== numericMonth - 1 ||
+      constructed.getUTCDate() !== numericDay
+    ) {
+      return null;
+    }
+
+    return constructed.toISOString();
+  }
+
+  if (
+    constructed.getUTCFullYear() !== numericYear ||
+    constructed.getUTCMonth() !== numericMonth - 1
+  ) {
+    return null;
+  }
+
+  return new Date(
+    Date.UTC(numericYear, numericMonth - 1, 1, 12, 0, 0)
+  ).toISOString();
 }
 
 function getCollectionTypeLabel(type: PaymentCollectionType) {
@@ -450,70 +532,6 @@ function DashboardHeroCard({
   );
 }
 
-function PaymentConfirmModal({
-  open,
-  memberDisplayName,
-  periodLabel,
-  amount,
-  currency,
-  onCancel,
-  onConfirm,
-  isSubmitting,
-}: {
-  open: boolean;
-  memberDisplayName: string;
-  periodLabel: string;
-  amount: number;
-  currency: string;
-  onCancel: () => void;
-  onConfirm: () => void;
-  isSubmitting: boolean;
-}) {
-  if (!open) return null;
-
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/45 p-4">
-      <div className="w-full max-w-md rounded-[28px] border border-slate-200 bg-white p-5 shadow-2xl">
-        <div className="mb-4">
-          <div className="text-lg font-semibold text-slate-900">Ödeme Onayı</div>
-          <p className="mt-2 text-sm leading-6 text-slate-600">
-            <span className="font-medium text-slate-900">{memberDisplayName}</span> için{" "}
-            <span className="font-medium text-slate-900">{periodLabel}</span> dönemine{" "}
-            <span className="font-medium text-slate-900">
-              {formatCurrency(amount, currency)}
-            </span>{" "}
-            ödeme kaydı oluşturulacak.
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          Bu işlem ödeme geçmişine yansıyacaktır. Devam etmek istediğine emin misin?
-        </div>
-
-        <div className="mt-5 flex justify-end gap-3">
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={isSubmitting}
-            className="rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
-          >
-            Vazgeç
-          </button>
-
-          <button
-            type="button"
-            onClick={onConfirm}
-            disabled={isSubmitting}
-            className="rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800 disabled:opacity-60"
-          >
-            {isSubmitting ? "İşleniyor..." : "Ödemeyi Onayla"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function OrganizationPaymentsPageClient({
   organizationId,
 }: {
@@ -541,6 +559,7 @@ export default function OrganizationPaymentsPageClient({
   const [paymentAmountByPeriod, setPaymentAmountByPeriod] = useState<Record<string, string>>({});
   const [payingPeriodId, setPayingPeriodId] = useState<string | null>(null);
   const [pendingPayment, setPendingPayment] = useState<PendingPaymentConfirm | null>(null);
+  const [pendingPlanDelete, setPendingPlanDelete] = useState<PendingPlanDeleteConfirm | null>(null);
 
   const [settingsForm, setSettingsForm] = useState<SettingsFormState>({
     isEnabled: false,
@@ -556,13 +575,23 @@ export default function OrganizationPaymentsPageClient({
     isActive: true,
   });
 
+  const [revisionForm, setRevisionForm] = useState<RevisionFormState>({
+    effectiveDay: "1",
+    effectiveMonth: "1",
+    effectiveYear: getDefaultYearString(),
+    amount: "",
+    currency: "TRY",
+    isActive: true,
+  });
+
   const [selectedPlanYear, setSelectedPlanYear] = useState<number | null>(null);
   const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
+  const [isRevisionPanelOpen, setIsRevisionPanelOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [pageError, setPageError] = useState<string | null>(null);
   const [isSavingAll, setIsSavingAll] = useState(false);
-  const [deleteArmedPlanYear, setDeleteArmedPlanYear] = useState<number | null>(null);
   const [deletingPlanYear, setDeletingPlanYear] = useState<number | null>(null);
+  const [isAddingRevision, setIsAddingRevision] = useState(false);
 
   const loadSettingsAndPlans = useCallback(async () => {
     const [settingsResult, plansResult] = await Promise.all([
@@ -599,6 +628,28 @@ export default function OrganizationPaymentsPageClient({
           ? currentYearPlan.currency
           : "TRY",
       isActive: currentYearPlan?.isActive ?? true,
+    });
+
+    const latestRevision = currentYearPlan?.revisions?.length
+      ? [...currentYearPlan.revisions].sort((a, b) => b.revisionNo - a.revisionNo)[0]
+      : null;
+
+    const revisionDateParts = getDateParts(
+      latestRevision?.effectiveFromUtc ?? settingsResult.startDateUtc
+    );
+
+    setRevisionForm({
+      effectiveDay: revisionDateParts.day,
+      effectiveMonth: revisionDateParts.month,
+      effectiveYear: revisionDateParts.year,
+      amount: "",
+      currency:
+        latestRevision?.currency === "USD" || latestRevision?.currency === "EUR"
+          ? latestRevision.currency
+          : currentYearPlan?.currency === "USD" || currentYearPlan?.currency === "EUR"
+          ? currentYearPlan.currency
+          : "TRY",
+      isActive: true,
     });
 
     setSelectedPlanYear(currentYearPlan?.year ?? null);
@@ -649,6 +700,14 @@ export default function OrganizationPaymentsPageClient({
         currency: "TRY",
         isActive: true,
       });
+      setRevisionForm({
+        effectiveDay: "1",
+        effectiveMonth: "1",
+        effectiveYear: getDefaultYearString(),
+        amount: "",
+        currency: "TRY",
+        isActive: true,
+      });
       return;
     }
 
@@ -665,6 +724,28 @@ export default function OrganizationPaymentsPageClient({
           : "TRY",
       isActive: currentPlan?.isActive ?? true,
     });
+
+    const latestRevision = currentPlan?.revisions?.length
+      ? [...currentPlan.revisions].sort((a, b) => b.revisionNo - a.revisionNo)[0]
+      : null;
+
+    const revisionDateParts = getDateParts(
+      latestRevision?.effectiveFromUtc ?? `${selectedYear}-01-01T00:00:00Z`
+    );
+
+    setRevisionForm({
+      effectiveDay: revisionDateParts.day,
+      effectiveMonth: revisionDateParts.month,
+      effectiveYear: revisionDateParts.year,
+      amount: "",
+      currency:
+        latestRevision?.currency === "USD" || latestRevision?.currency === "EUR"
+          ? latestRevision.currency
+          : currentPlan?.currency === "USD" || currentPlan?.currency === "EUR"
+          ? currentPlan.currency
+          : "TRY",
+      isActive: true,
+    });
   }, [settingsForm.startYear, settingsForm.period, plans]);
 
   const collectionType = mapCollectionType(settings);
@@ -680,6 +761,9 @@ export default function OrganizationPaymentsPageClient({
     for (const plan of compatiblePlans) map.set(plan.year, plan);
     return map;
   }, [compatiblePlans]);
+
+  const selectedPlan =
+    selectedPlanYear != null ? compatiblePlanMap.get(selectedPlanYear) ?? null : null;
 
   const activePeriodInfo = useMemo(() => {
     if (!settings?.isEnabled || !settings.startDateUtc) {
@@ -927,6 +1011,71 @@ export default function OrganizationPaymentsPageClient({
     });
   }, [neverPaidMembers, neverPaidSearch]);
 
+  const getPlanForPeriod = useCallback(
+    (period: PaymentPeriodRow) => {
+      return (
+        plans.find(
+          (x) =>
+            x.year === period.periodYear &&
+            x.period ===
+              (period.periodType === "Yearly" ? "Yearly" : "Monthly")
+        ) ?? null
+      );
+    },
+    [plans]
+  );
+
+  const getEffectiveRevisionForPeriod = useCallback(
+    (period: PaymentPeriodRow) => {
+      const plan = getPlanForPeriod(period);
+      if (!plan?.revisions?.length) return null;
+
+      const revisions = [...plan.revisions]
+        .filter((x) => x.isActive)
+        .sort((a, b) => {
+          const aTime = new Date(a.effectiveFromUtc).getTime();
+          const bTime = new Date(b.effectiveFromUtc).getTime();
+          if (aTime !== bTime) return aTime - bTime;
+          return a.revisionNo - b.revisionNo;
+        });
+
+      if (revisions.length === 0) return null;
+
+      if (period.periodType === "Yearly") {
+        return revisions[revisions.length - 1];
+      }
+
+      const periodStart = new Date(period.periodStartUtc).getTime();
+
+      return (
+        [...revisions]
+          .reverse()
+          .find((revision) => new Date(revision.effectiveFromUtc).getTime() <= periodStart) ??
+        revisions[0]
+      );
+    },
+    [getPlanForPeriod]
+  );
+
+  const getRevisionNotice = useCallback(
+    (period: PaymentPeriodRow) => {
+      const plan = getPlanForPeriod(period);
+      const effectiveRevision = getEffectiveRevisionForPeriod(period);
+
+      if (!plan || !effectiveRevision) return null;
+      if (!plan.revisions || plan.revisions.length <= 1) return null;
+      if (effectiveRevision.revisionNo <= 1) return null;
+      if (period.paidAmount <= 0) return null;
+      if (period.remainingAmount <= 0) return null;
+
+      return `Bu dönemde plan revizyonu uygulandı. Daha önce yapılan ödeme sonrası ${formatCurrency(
+        period.remainingAmount,
+        period.currency
+      )} fark borç oluştu.`;
+    },
+    [getEffectiveRevisionForPeriod, getPlanForPeriod]
+  );
+
   async function loadMemberPeriods(
     memberId: string,
     options?: {
@@ -985,6 +1134,19 @@ export default function OrganizationPaymentsPageClient({
       ...amountDrafts,
     }));
   }
+
+  const refreshExpandedMemberPeriods = useCallback(async () => {
+    if (expandedMemberIds.length === 0) return;
+
+    await Promise.allSettled(
+      expandedMemberIds.map((memberId) =>
+        loadMemberPeriods(memberId, {
+          yearValue: periodYearFilterByMember[memberId],
+          showOpenOnly: showOpenOnlyByMember[memberId] ?? true,
+        })
+      )
+    );
+  }, [expandedMemberIds, periodYearFilterByMember, showOpenOnlyByMember]);
 
   async function toggleMember(memberId: string) {
     const isExpanded = expandedMemberIds.includes(memberId);
@@ -1127,31 +1289,17 @@ export default function OrganizationPaymentsPageClient({
         });
       }
 
-      await Promise.all([
-        loadSettingsAndPlans(),
-        loadStatusesOnly(),
-        loadRecentPaymentsOnly(),
-      ]);
+      await Promise.all([loadSettingsAndPlans(), loadStatusesOnly()]);
+      await refreshExpandedMemberPeriods();
 
-      setPeriodsByMember({});
-      setDeleteArmedPlanYear(null);
-
-      if (!settingsForm.isEnabled) {
-        showToast({
-          message: "Aidat sistemi kapatıldı.",
-          type: "success",
-        });
-      } else if (settingsForm.period === "Monthly") {
-        showToast({
-          message: "Aidat sistemi aylık olarak güncellendi.",
-          type: "success",
-        });
-      } else {
-        showToast({
-          message: "Aidat sistemi yıllık olarak güncellendi.",
-          type: "success",
-        });
-      }
+      showToast({
+        message: !settingsForm.isEnabled
+          ? "Aidat sistemi kapatıldı."
+          : settingsForm.period === "Monthly"
+          ? "Aidat sistemi aylık olarak güncellendi."
+          : "Aidat sistemi yıllık olarak güncellendi.",
+        type: "success",
+      });
     } catch (error) {
       showToast({
         message: error instanceof Error ? error.message : "Kayıt sırasında bir hata oluştu.",
@@ -1162,38 +1310,120 @@ export default function OrganizationPaymentsPageClient({
     }
   }
 
-  async function handleDeletePlan(plan: OrganizationPaymentPlanDto) {
-    if (deletingPlanYear !== null) return;
+  async function handleAddRevision() {
+    try {
+      const selectedYear = settingsForm.startYear ? Number(settingsForm.startYear) : null;
 
-    if (deleteArmedPlanYear !== plan.year) {
-      setDeleteArmedPlanYear(plan.year);
+      if (!selectedYear) {
+        showToast({
+          message: "Önce geçerli bir plan yılı seçmelisin.",
+          type: "error",
+        });
+        return;
+      }
 
-      showToast({
-        message: `${plan.year} planını silmek için tekrar tıkla.`,
-        type: "info",
+      if (!selectedPlan || selectedPlan.year !== selectedYear) {
+        showToast({
+          message: "Revizyon eklemek için önce o yılın planı kayıtlı olmalı.",
+          type: "error",
+        });
+        return;
+      }
+
+      if (!revisionForm.amount.trim()) {
+        showToast({
+          message: "Revizyon tutarı zorunludur.",
+          type: "error",
+        });
+        return;
+      }
+
+      const numericAmount = Number(revisionForm.amount);
+      if (!Number.isFinite(numericAmount) || numericAmount < 0) {
+        showToast({
+          message: "Geçerli bir revizyon tutarı gir.",
+          type: "error",
+        });
+        return;
+      }
+
+      const effectiveFromUtc = buildRevisionIsoFromDateParts(
+        revisionForm.effectiveDay,
+        revisionForm.effectiveMonth,
+        revisionForm.effectiveYear,
+        settingsForm.period
+      );
+
+      if (!effectiveFromUtc) {
+        showToast({
+          message:
+            settingsForm.period === "Yearly"
+              ? "Geçerli bir revizyon tarihi seç."
+              : "Geçerli bir revizyon başlangıç tarihi seç.",
+          type: "error",
+        });
+        return;
+      }
+
+      setIsAddingRevision(true);
+
+      await addOrganizationPaymentPlanRevision(organizationId, selectedYear, {
+        effectiveFromUtc,
+        amount: numericAmount,
+        currency: revisionForm.currency,
+        isActive: revisionForm.isActive,
       });
 
-      return;
-    }
+      await Promise.all([loadSettingsAndPlans(), loadStatusesOnly()]);
+      await refreshExpandedMemberPeriods();
 
-    try {
-      setDeletingPlanYear(plan.year);
-
-      await deleteOrganizationPaymentPlan(organizationId, plan.year);
-
-      await Promise.all([
-        loadSettingsAndPlans(),
-        loadStatusesOnly(),
-        loadRecentPaymentsOnly(),
-      ]);
-
-      setPeriodsByMember({});
-      setDeleteArmedPlanYear(null);
+      setRevisionForm((prev) => ({
+        ...prev,
+        amount: "",
+      }));
 
       showToast({
-        message: `${plan.year} aidat planı silindi.`,
+        message:
+          settingsForm.period === "Yearly"
+            ? `${selectedYear} yılı için yeni yıllık revizyon eklendi.`
+            : `${selectedYear} yılı için yeni aylık revizyon eklendi.`,
         type: "success",
       });
+    } catch (error) {
+      showToast({
+        message:
+          error instanceof Error ? error.message : "Revizyon eklenemedi.",
+        type: "error",
+      });
+    } finally {
+      setIsAddingRevision(false);
+    }
+  }
+
+  function requestDeletePlan(plan: OrganizationPaymentPlanDto) {
+    setPendingPlanDelete({
+      year: plan.year,
+      period: plan.period,
+    });
+  }
+
+  async function confirmDeletePlan() {
+    if (!pendingPlanDelete) return;
+
+    try {
+      setDeletingPlanYear(pendingPlanDelete.year);
+
+      await deleteOrganizationPaymentPlan(organizationId, pendingPlanDelete.year);
+
+      await Promise.all([loadSettingsAndPlans(), loadStatusesOnly()]);
+      await refreshExpandedMemberPeriods();
+
+      showToast({
+        message: `${pendingPlanDelete.year} aidat planı silindi.`,
+        type: "success",
+      });
+
+      setPendingPlanDelete(null);
     } catch (error) {
       showToast({
         message:
@@ -1282,25 +1512,58 @@ export default function OrganizationPaymentsPageClient({
       ? "Bu alanda seçilen yıl için yıllık aidat tutarını belirlersin."
       : "Bu alanda seçilen yıl için aylık aidat tutarını belirlersin.";
 
+  const revisionDescription =
+    settingsForm.period === "Yearly"
+      ? "Yıllık sistemde aynı yıl içinde yeni bir toplam aidat tutarı tanımlarsın. Önceden ödeme yapanlarda fark borç oluşur."
+      : "Aylık sistemde belirli tarihten itibaren yeni dönem tutarı tanımlarsın.";
+
   const planAmountLabel =
     settingsForm.period === "Yearly" ? "Yıllık tutar" : "Aylık tutar";
 
   const startDateLabel =
     settingsForm.period === "Yearly" ? "Başlangıç yılı" : "Başlangıç tarihi";
 
+  const revisionDateLabel = "Revizyon başlangıç tarihi";
+
   const controlsDisabled = !settingsForm.isEnabled;
 
   return (
     <>
-      <PaymentConfirmModal
+      <ActionConfirmModal
         open={pendingPayment != null}
-        memberDisplayName={pendingPayment?.memberDisplayName ?? ""}
-        periodLabel={pendingPayment?.periodLabel ?? ""}
-        amount={pendingPayment?.amount ?? 0}
-        currency={pendingPayment?.currency ?? "TRY"}
+        title="Ödeme Onayı"
+        description={
+          pendingPayment
+            ? `${pendingPayment.memberDisplayName} için ${pendingPayment.periodLabel} dönemine ${formatCurrency(
+                pendingPayment.amount,
+                pendingPayment.currency
+              )} ödeme kaydı oluşturulacak.`
+            : ""
+        }
+        warningText="Bu işlem ödeme geçmişine yansıyacaktır. Devam etmek istediğine emin misin?"
+        confirmText="Ödemeyi Onayla"
+        cancelText="Vazgeç"
+        confirmTone="default"
+        isSubmitting={pendingPayment != null && payingPeriodId === pendingPayment.periodId}
         onCancel={() => setPendingPayment(null)}
         onConfirm={confirmPayment}
-        isSubmitting={pendingPayment != null && payingPeriodId === pendingPayment.periodId}
+      />
+
+      <ActionConfirmModal
+        open={pendingPlanDelete != null}
+        title="Aidat Planı Silme Onayı"
+        description={
+          pendingPlanDelete
+            ? `${pendingPlanDelete.year} ${pendingPlanDelete.period === "Yearly" ? "yıllık" : "aylık"} aidat planı silinecek.`
+            : ""
+        }
+        warningText="Bu işlem planı ve bu plana bağlı borç üretimini etkiler. Bu yıl için ödeme alınmış planlar zaten silinemez."
+        confirmText="Planı Sil"
+        cancelText="Vazgeç"
+        confirmTone="danger"
+        isSubmitting={pendingPlanDelete != null && deletingPlanYear === pendingPlanDelete.year}
+        onCancel={() => setPendingPlanDelete(null)}
+        onConfirm={confirmDeletePlan}
       />
 
       <div className="space-y-6 rounded-[32px] bg-[#e5e7eb] p-3">
@@ -1441,7 +1704,7 @@ export default function OrganizationPaymentsPageClient({
                         startDay: e.target.value,
                       }))
                     }
-                    disabled={controlsDisabled || settingsForm.period === "Yearly"}
+                    disabled={controlsDisabled}
                     className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none disabled:bg-slate-100 disabled:text-slate-400"
                   >
                     {DAY_OPTIONS.map((day) => (
@@ -1459,7 +1722,7 @@ export default function OrganizationPaymentsPageClient({
                         startMonth: e.target.value,
                       }))
                     }
-                    disabled={controlsDisabled || settingsForm.period === "Yearly"}
+                    disabled={controlsDisabled}
                     className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none disabled:bg-slate-100 disabled:text-slate-400"
                   >
                     {MONTH_OPTIONS.map((month) => (
@@ -1565,6 +1828,7 @@ export default function OrganizationPaymentsPageClient({
                       <th className="px-3 py-3">Tip</th>
                       <th className="px-3 py-3">Tutar</th>
                       <th className="px-3 py-3">Durum</th>
+                      <th className="px-3 py-3">Revizyon</th>
                       <th className="px-3 py-3">Güncellendi</th>
                       <th className="px-3 py-3 text-right">İşlem</th>
                     </tr>
@@ -1572,7 +1836,7 @@ export default function OrganizationPaymentsPageClient({
                   <tbody>
                     {compatiblePlans.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="px-3 py-6 text-center text-slate-500">
+                        <td colSpan={7} className="px-3 py-6 text-center text-slate-500">
                           Bu aidat tipine uygun plan henüz tanımlanmadı.
                         </td>
                       </tr>
@@ -1592,23 +1856,18 @@ export default function OrganizationPaymentsPageClient({
                             {formatCurrency(plan.amount, plan.currency)}
                           </td>
                           <td className="px-3 py-3">{plan.isActive ? "Aktif" : "Pasif"}</td>
+                          <td className="px-3 py-3">
+                            {plan.revisions?.length ? `${plan.revisions.length} kayıt` : "—"}
+                          </td>
                           <td className="px-3 py-3">{formatDate(plan.updatedAtUtc)}</td>
                           <td className="px-3 py-3 text-right">
                             <button
                               type="button"
-                              onClick={() => handleDeletePlan(plan)}
+                              onClick={() => requestDeletePlan(plan)}
                               disabled={deletingPlanYear === plan.year}
-                              className={`rounded-2xl px-3 py-2 text-xs font-medium transition ${
-                                deleteArmedPlanYear === plan.year
-                                  ? "border border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100"
-                                  : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
-                              } disabled:cursor-not-allowed disabled:opacity-60`}
+                              className="rounded-2xl border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
                             >
-                              {deletingPlanYear === plan.year
-                                ? "Siliniyor..."
-                                : deleteArmedPlanYear === plan.year
-                                ? "Eminim, sil"
-                                : "Planı sil"}
+                              {deletingPlanYear === plan.year ? "Siliniyor..." : "Planı sil"}
                             </button>
                           </td>
                         </tr>
@@ -1617,7 +1876,196 @@ export default function OrganizationPaymentsPageClient({
                   </tbody>
                 </table>
               </div>
+
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                <div>
+                  <div className="text-sm font-medium text-slate-900">Plan revizyonları</div>
+                  <div className="text-xs text-slate-500">
+                    İhtiyaç halinde açıp yeni revizyon ekleyebilirsin.
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsRevisionPanelOpen((prev) => !prev)}
+                  disabled={controlsDisabled}
+                  className="rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                >
+                  {isRevisionPanelOpen ? "Revizyon alanını kapat" : "Revizyon alanını aç"}
+                </button>
+              </div>
             </div>
+
+            {isRevisionPanelOpen ? (
+              <div
+                className={`mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3 ${
+                  controlsDisabled ? "opacity-60" : ""
+                }`}
+              >
+                <div className="mb-3">
+                  <div className="text-sm font-semibold text-slate-900">Plan Revizyonu</div>
+                  <p className="mt-1 text-sm text-slate-500">{revisionDescription}</p>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 xl:grid-cols-[1.1fr_1fr_0.8fr_auto]">
+                  <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                    <div className="text-sm font-medium text-slate-700">{revisionDateLabel}</div>
+
+                    <div className="mt-2 grid grid-cols-3 gap-2">
+                      <select
+                        value={revisionForm.effectiveDay}
+                        onChange={(e) =>
+                          setRevisionForm((prev) => ({
+                            ...prev,
+                            effectiveDay: e.target.value,
+                          }))
+                        }
+                        disabled={controlsDisabled}
+                        className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none disabled:bg-slate-100 disabled:text-slate-400"
+                      >
+                        {DAY_OPTIONS.map((day) => (
+                          <option key={day} value={day}>
+                            {day}
+                          </option>
+                        ))}
+                      </select>
+
+                      <select
+                        value={revisionForm.effectiveMonth}
+                        onChange={(e) =>
+                          setRevisionForm((prev) => ({
+                            ...prev,
+                            effectiveMonth: e.target.value,
+                          }))
+                        }
+                        disabled={controlsDisabled}
+                        className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none disabled:bg-slate-100 disabled:text-slate-400"
+                      >
+                        {MONTH_OPTIONS.map((month) => (
+                          <option key={month} value={month}>
+                            {month}
+                          </option>
+                        ))}
+                      </select>
+
+                      <select
+                        value={revisionForm.effectiveYear}
+                        onChange={(e) =>
+                          setRevisionForm((prev) => ({
+                            ...prev,
+                            effectiveYear: e.target.value,
+                          }))
+                        }
+                        disabled={controlsDisabled}
+                        className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none disabled:bg-slate-100 disabled:text-slate-400"
+                      >
+                        {YEAR_OPTIONS.map((year) => (
+                          <option key={year} value={year}>
+                            {year}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <label className="rounded-2xl border border-slate-200 bg-white p-3">
+                    <div className="text-sm font-medium text-slate-700">
+                      {settingsForm.period === "Yearly" ? "Yeni yıllık tutar" : "Yeni dönem tutarı"}
+                    </div>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={revisionForm.amount}
+                      onChange={(e) =>
+                        setRevisionForm((prev) => ({ ...prev, amount: e.target.value }))
+                      }
+                      disabled={controlsDisabled}
+                      className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none disabled:bg-slate-100 disabled:text-slate-400"
+                      placeholder="Tutar gir"
+                    />
+                  </label>
+
+                  <label className="rounded-2xl border border-slate-200 bg-white p-3">
+                    <div className="text-sm font-medium text-slate-700">Para birimi</div>
+                    <select
+                      value={revisionForm.currency}
+                      onChange={(e) =>
+                        setRevisionForm((prev) => ({
+                          ...prev,
+                          currency: e.target.value as "TRY" | "USD" | "EUR",
+                        }))
+                      }
+                      disabled={controlsDisabled}
+                      className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none disabled:bg-slate-100 disabled:text-slate-400"
+                    >
+                      <option value="TRY">TRY</option>
+                      <option value="USD">USD</option>
+                      <option value="EUR">EUR</option>
+                    </select>
+                  </label>
+
+                  <div className="flex items-end">
+                    <button
+                      type="button"
+                      onClick={handleAddRevision}
+                      disabled={controlsDisabled || isAddingRevision}
+                      className="w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-medium text-white transition hover:bg-slate-800 disabled:opacity-60"
+                    >
+                      {isAddingRevision ? "Ekleniyor..." : "Revizyon Ekle"}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mt-4">
+                  <div className="mb-2 text-sm font-medium text-slate-700">
+                    Seçili planın revizyon geçmişi
+                  </div>
+
+                  {!selectedPlan || !selectedPlan.revisions?.length ? (
+                    <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-4 text-sm text-slate-500">
+                      Seçili plan için revizyon kaydı bulunmuyor.
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {[...selectedPlan.revisions]
+                        .sort((a, b) => a.revisionNo - b.revisionNo)
+                        .map((revision: OrganizationPaymentPlanRevisionDto) => (
+                          <div
+                            key={revision.id}
+                            className="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-white p-3 md:flex-row md:items-center md:justify-between"
+                          >
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="rounded-full bg-slate-900 px-2.5 py-1 text-xs font-medium text-white">
+                                  Revizyon #{revision.revisionNo}
+                                </span>
+                                <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs text-slate-600">
+                                  Başlangıç: {formatRevisionDateLabel(revision.effectiveFromUtc, revision.period)}
+                                </span>
+                                <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs text-slate-600">
+                                  {revision.isActive ? "Aktif" : "Pasif"}
+                                </span>
+                              </div>
+
+                              <div className="mt-2 text-sm text-slate-600">
+                                Tutar:{" "}
+                                <span className="font-semibold text-slate-900">
+                                  {formatCurrency(revision.amount, revision.currency)}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="text-xs text-slate-500">
+                              Güncelleme: {formatDate(revision.updatedAtUtc)}
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : null}
           </SectionCard>
         ) : null}
 
@@ -1781,95 +2229,111 @@ export default function OrganizationPaymentsPageClient({
                               </div>
                             ) : (
                               <div className="space-y-3">
-                                {memberPeriods.map((period) => (
-                                  <div
-                                    key={period.id}
-                                    className="rounded-[22px] border border-slate-200 bg-slate-50 p-4 shadow-sm"
-                                  >
-                                    <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-                                      <div className="min-w-0">
-                                        <div className="flex flex-wrap items-center gap-2">
-                                          <div className="text-base font-semibold text-slate-900">
-                                            {period.periodLabel}
+                                {memberPeriods.map((period) => {
+                                  const revisionNotice = getRevisionNotice(period);
+
+                                  return (
+                                    <div
+                                      key={period.id}
+                                      className="rounded-[22px] border border-slate-200 bg-slate-50 p-4 shadow-sm"
+                                    >
+                                      <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                                        <div className="min-w-0">
+                                          <div className="flex flex-wrap items-center gap-2">
+                                            <div className="text-base font-semibold text-slate-900">
+                                              {period.periodLabel}
+                                            </div>
+
+                                            <span
+                                              className={`rounded-full px-2.5 py-1 text-xs font-medium ${getPeriodStatusClass(
+                                                period.status,
+                                                period.isOverdue
+                                              )}`}
+                                            >
+                                              {getPeriodStatusLabel(period.status, period.isOverdue)}
+                                            </span>
+
+                                            {period.isCurrentPeriod ? (
+                                              <span className="rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-700">
+                                                Aktif dönem
+                                              </span>
+                                            ) : null}
+
+                                            {revisionNotice ? (
+                                              <span className="rounded-full border border-violet-200 bg-violet-50 px-2.5 py-1 text-xs font-medium text-violet-700">
+                                                Revizyon farkı
+                                              </span>
+                                            ) : null}
                                           </div>
 
-                                          <span
-                                            className={`rounded-full px-2.5 py-1 text-xs font-medium ${getPeriodStatusClass(
-                                              period.status,
-                                              period.isOverdue
-                                            )}`}
-                                          >
-                                            {getPeriodStatusLabel(period.status, period.isOverdue)}
-                                          </span>
-
-                                          {period.isCurrentPeriod ? (
-                                            <span className="rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-700">
-                                              Aktif dönem
+                                          <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
+                                            <span className="rounded-full bg-white px-2.5 py-1 shadow-sm">
+                                              Beklenen: {formatCurrency(period.expectedAmount, period.currency)}
                                             </span>
+                                            <span className="rounded-full bg-white px-2.5 py-1 shadow-sm">
+                                              Ödenen: {formatCurrency(period.paidAmount, period.currency)}
+                                            </span>
+                                            <span className="rounded-full bg-white px-2.5 py-1 shadow-sm">
+                                              Kalan: {formatCurrency(period.remainingAmount, period.currency)}
+                                            </span>
+                                            <span className="rounded-full bg-white px-2.5 py-1 shadow-sm">
+                                              Kayıt: {period.paymentCount}
+                                            </span>
+                                            <span className="rounded-full bg-white px-2.5 py-1 shadow-sm">
+                                              Son ödeme: {formatDate(period.lastPaidAtUtc)}
+                                            </span>
+                                          </div>
+
+                                          {revisionNotice ? (
+                                            <div className="mt-3 rounded-2xl border border-violet-200 bg-violet-50 px-3 py-2 text-xs leading-5 text-violet-800">
+                                              {revisionNotice}
+                                            </div>
                                           ) : null}
                                         </div>
 
-                                        <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
-                                          <span className="rounded-full bg-white px-2.5 py-1 shadow-sm">
-                                            Beklenen: {formatCurrency(period.expectedAmount, period.currency)}
-                                          </span>
-                                          <span className="rounded-full bg-white px-2.5 py-1 shadow-sm">
-                                            Ödenen: {formatCurrency(period.paidAmount, period.currency)}
-                                          </span>
-                                          <span className="rounded-full bg-white px-2.5 py-1 shadow-sm">
-                                            Kalan: {formatCurrency(period.remainingAmount, period.currency)}
-                                          </span>
-                                          <span className="rounded-full bg-white px-2.5 py-1 shadow-sm">
-                                            Kayıt: {period.paymentCount}
-                                          </span>
-                                          <span className="rounded-full bg-white px-2.5 py-1 shadow-sm">
-                                            Son ödeme: {formatDate(period.lastPaidAtUtc)}
-                                          </span>
+                                        <div className="grid grid-cols-1 gap-2 md:grid-cols-[180px_auto]">
+                                          <input
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            value={paymentAmountByPeriod[period.id] ?? ""}
+                                            onChange={(e) =>
+                                              setPaymentAmountByPeriod((prev) => ({
+                                                ...prev,
+                                                [period.id]: e.target.value,
+                                              }))
+                                            }
+                                            placeholder="Ödeme tutarı"
+                                            disabled={period.remainingAmount <= 0}
+                                            className="rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none disabled:opacity-60"
+                                          />
+
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              openPaymentConfirm(
+                                                member,
+                                                period,
+                                                paymentAmountByPeriod[period.id] ?? ""
+                                              )
+                                            }
+                                            disabled={
+                                              payingPeriodId === period.id ||
+                                              period.remainingAmount <= 0
+                                            }
+                                            className="rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                                          >
+                                            {payingPeriodId === period.id
+                                              ? "İşleniyor..."
+                                              : period.remainingAmount <= 0
+                                              ? "Tamamlandı"
+                                              : "Bu Döneme Ödeme Al"}
+                                          </button>
                                         </div>
                                       </div>
-
-                                      <div className="grid grid-cols-1 gap-2 md:grid-cols-[180px_auto]">
-                                        <input
-                                          type="number"
-                                          min="0"
-                                          step="0.01"
-                                          value={paymentAmountByPeriod[period.id] ?? ""}
-                                          onChange={(e) =>
-                                            setPaymentAmountByPeriod((prev) => ({
-                                              ...prev,
-                                              [period.id]: e.target.value,
-                                            }))
-                                          }
-                                          placeholder="Ödeme tutarı"
-                                          disabled={period.remainingAmount <= 0}
-                                          className="rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none disabled:opacity-60"
-                                        />
-
-                                        <button
-                                          type="button"
-                                          onClick={() =>
-                                            openPaymentConfirm(
-                                              member,
-                                              period,
-                                              paymentAmountByPeriod[period.id] ?? ""
-                                            )
-                                          }
-                                          disabled={
-                                            payingPeriodId === period.id ||
-                                            period.remainingAmount <= 0
-                                          }
-                                          className="rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-                                        >
-                                          {payingPeriodId === period.id
-                                            ? "İşleniyor..."
-                                            : period.remainingAmount <= 0
-                                            ? "Tamamlandı"
-                                            : "Bu Döneme Ödeme Al"}
-                                        </button>
-                                      </div>
                                     </div>
-                                  </div>
-                                ))}
+                                  );
+                                })}
                               </div>
                             )}
                           </div>
