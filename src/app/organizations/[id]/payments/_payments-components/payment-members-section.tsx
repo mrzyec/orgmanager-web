@@ -10,6 +10,7 @@ import type {
   MemberPaymentStatus,
   MemberRow,
   PaymentPeriodRow,
+  RecentPaymentItem,
   StatusFilter,
 } from "../_payments-lib/payment-page-types";
 
@@ -74,6 +75,7 @@ type PaymentMembersSectionProps = {
   showOpenOnlyByMember: Record<string, boolean>;
   paymentAmountByPeriod: Record<string, string>;
   payingPeriodId: string | null;
+  cancellingPaymentId: string | null;
   onSearchChange: (value: string) => void;
   onStatusFilterChange: (value: StatusFilter) => void;
   onToggleMember: (memberId: string) => void;
@@ -86,6 +88,15 @@ type PaymentMembersSectionProps = {
     period: PaymentPeriodRow,
     amountText: string
   ) => void;
+  onRequestCancelPaymentForPeriod: (
+    member: MemberRow,
+    period: PaymentPeriodRow,
+    payment: RecentPaymentItem
+  ) => void;
+  getCancelablePaymentForPeriod: (
+    member: MemberRow,
+    period: PaymentPeriodRow
+  ) => RecentPaymentItem | null;
   getRevisionNotice: (period: PaymentPeriodRow) => string | null;
 };
 
@@ -101,6 +112,7 @@ export default function PaymentMembersSection({
   showOpenOnlyByMember,
   paymentAmountByPeriod,
   payingPeriodId,
+  cancellingPaymentId,
   onSearchChange,
   onStatusFilterChange,
   onToggleMember,
@@ -109,6 +121,8 @@ export default function PaymentMembersSection({
   onRefreshMemberPeriods,
   onPaymentAmountChange,
   onOpenPaymentConfirm,
+  onRequestCancelPaymentForPeriod,
+  getCancelablePaymentForPeriod,
   getRevisionNotice,
 }: PaymentMembersSectionProps) {
   return (
@@ -272,6 +286,10 @@ export default function PaymentMembersSection({
                       <div className="space-y-3">
                         {memberPeriods.map((period) => {
                           const revisionNotice = getRevisionNotice(period);
+                          const cancelablePayment = getCancelablePaymentForPeriod(
+                            member,
+                            period
+                          );
 
                           return (
                             <div
@@ -367,6 +385,25 @@ export default function PaymentMembersSection({
                                       ? "Tamamlandı"
                                       : "Bu Döneme Ödeme Al"}
                                   </button>
+
+                                  {cancelablePayment ? (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        onRequestCancelPaymentForPeriod(
+                                          member,
+                                          period,
+                                          cancelablePayment
+                                        )
+                                      }
+                                      disabled={cancellingPaymentId === cancelablePayment.paymentId}
+                                      className="rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 md:col-span-2"
+                                    >
+                                      {cancellingPaymentId === cancelablePayment.paymentId
+                                        ? "İşleniyor..."
+                                        : "Son ödeme kaydını iptal et"}
+                                    </button>
+                                  ) : null}
                                 </div>
                               </div>
                             </div>

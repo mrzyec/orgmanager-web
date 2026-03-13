@@ -1,11 +1,5 @@
-import OrganizationPaymentsPageClient from "./payments-page-client";
+import OrganizationPaymentsPageClient from "./OrganizationPaymentsPageClient";
 
-/**
- * Payments route server component
- * - URL'den organization id alır
- * - Client component'e aktarır
- * - Mevcut app router yapısını bozmaz
- */
 export default async function OrganizationPaymentsPage({
   params,
 }: {

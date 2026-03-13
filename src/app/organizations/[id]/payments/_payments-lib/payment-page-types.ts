@@ -1,6 +1,7 @@
 export type PaymentCollectionType = "monthly" | "yearly" | "disabled";
 export type MemberPaymentStatus = "paid" | "partial" | "unpaid" | "overdue";
 export type StatusFilter = "all" | "paid" | "partial" | "unpaid" | "overdue";
+export type RecentPaymentStatusFilter = "all" | "completed" | "cancelled";
 
 export type SettingsFormState = {
   isEnabled: boolean;
@@ -89,7 +90,9 @@ export type PendingPlanDeleteConfirm = {
 };
 
 export type PendingPaymentCancelConfirm = {
-  paymentId: string;
+  paymentId?: string | null;
+  memberId?: string | null;
+  periodId?: string | null;
   memberDisplayName: string;
   periodLabel: string;
   amount: number;

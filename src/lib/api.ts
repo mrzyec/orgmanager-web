@@ -736,3 +736,19 @@ export async function cancelOrganizationPayment(
     true
   );
 }
+export async function cancelOrganizationMemberPeriodLastPayment(
+  organizationId: string,
+  memberId: string,
+  periodId: string
+): Promise<void> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/organizations/${organizationId}/payments/members/${memberId}/payment-periods/${periodId}/cancel-last-payment`,
+    {
+      method: "POST",
+      headers: await createJsonHeaders(),
+      credentials: "include",
+    }
+  );
+
+  await ensureSuccessResponse(response);
+}

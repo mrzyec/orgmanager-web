@@ -9,6 +9,7 @@ import type {
   MemberPaymentStatus,
   MemberRow,
   RecentPaymentItem,
+  RecentPaymentStatusFilter,
 } from "../_payments-lib/payment-page-types";
 
 function getStatusLabel(status: MemberPaymentStatus) {
@@ -30,12 +31,14 @@ type PaymentSidePanelsProps = {
   filteredRegularPayers: MemberRow[];
   filteredNeverPaidMembers: MemberRow[];
   recentSearch: string;
+  recentPaymentStatusFilter: RecentPaymentStatusFilter;
   topDebtorsSearch: string;
   regularPayersSearch: string;
   neverPaidSearch: string;
   activeCurrency: string;
   cancellingPaymentId: string | null;
   onRecentSearchChange: (value: string) => void;
+  onRecentPaymentStatusFilterChange: (value: RecentPaymentStatusFilter) => void;
   onTopDebtorsSearchChange: (value: string) => void;
   onRegularPayersSearchChange: (value: string) => void;
   onNeverPaidSearchChange: (value: string) => void;
@@ -48,12 +51,14 @@ export default function PaymentSidePanels({
   filteredRegularPayers,
   filteredNeverPaidMembers,
   recentSearch,
+  recentPaymentStatusFilter,
   topDebtorsSearch,
   regularPayersSearch,
   neverPaidSearch,
   activeCurrency,
   cancellingPaymentId,
   onRecentSearchChange,
+  onRecentPaymentStatusFilterChange,
   onTopDebtorsSearchChange,
   onRegularPayersSearchChange,
   onNeverPaidSearchChange,
@@ -65,19 +70,35 @@ export default function PaymentSidePanels({
         title="Son Tahsilatlar"
         description="Liste büyürse bölüm içinde scroll olur."
         rightSlot={
-          <input
-            value={recentSearch}
-            onChange={(e) => onRecentSearchChange(e.target.value)}
-            placeholder="İsim veya mail ile ara"
-            className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none md:w-72"
-          />
+          <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row">
+            <input
+              value={recentSearch}
+              onChange={(e) => onRecentSearchChange(e.target.value)}
+              placeholder="İsim veya mail ile ara"
+              className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none md:w-56"
+            />
+
+            <select
+              value={recentPaymentStatusFilter}
+              onChange={(e) =>
+                onRecentPaymentStatusFilterChange(
+                  e.target.value as RecentPaymentStatusFilter
+                )
+              }
+              className="rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none"
+            >
+              <option value="all">Tümü</option>
+              <option value="completed">Tamamlanan</option>
+              <option value="cancelled">İptal edilen</option>
+            </select>
+          </div>
         }
       >
         <div className="max-h-[420px] overflow-y-auto pr-1">
           {filteredRecentPayments.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
               <div className="text-sm font-medium text-slate-700">
-                Henüz tahsilat kaydı yok
+                Filtreye uygun tahsilat kaydı yok
               </div>
             </div>
           ) : (
