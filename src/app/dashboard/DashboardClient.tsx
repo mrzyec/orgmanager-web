@@ -39,12 +39,12 @@ function SummaryStat({
       : "border-slate-200 bg-gradient-to-br from-slate-50 via-white to-blue-50/30";
 
   return (
-    <div className={`rounded-[28px] border p-5 shadow-sm ${toneClass}`}>
-      <div className="text-sm font-medium text-slate-600">{label}</div>
-      <div className="mt-2 text-3xl font-semibold tracking-tight text-slate-900">
+    <div className={`rounded-[24px] border p-4 shadow-sm ${toneClass}`}>
+      <div className="text-[13px] font-medium text-slate-600">{label}</div>
+      <div className="mt-1.5 text-[20px] font-semibold tracking-tight text-slate-900">
         {value}
       </div>
-      {hint ? <div className="mt-2 text-xs text-slate-500">{hint}</div> : null}
+      {hint ? <div className="mt-2 text-[12px] leading-5 text-slate-500">{hint}</div> : null}
     </div>
   );
 }
@@ -158,6 +158,12 @@ export default function DashboardClient() {
         }
       />
 
+      {error ? (
+        <div className="rounded-3xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      ) : null}
+
       <AppCard>
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <SummaryStat
@@ -185,14 +191,9 @@ export default function DashboardClient() {
         </div>
       </AppCard>
 
-      {error ? (
-        <div className="rounded-3xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
-        </div>
-      ) : null}
+      <OrgsCard organizations={organizations} />
 
       <JoinRequestSummaryCard requests={joinRequests} />
-      <OrgsCard organizations={organizations} />
     </AppPage>
   );
 }

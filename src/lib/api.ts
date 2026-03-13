@@ -206,6 +206,15 @@ export type RecentOrganizationMemberPaymentDto = {
   note?: string | null;
 };
 
+export type VerifyEmailResponse = {
+  success?: boolean;
+  message?: string;
+};
+
+export type ResendVerificationEmailRequest = {
+  email: string;
+};
+
 const ACCESS_TOKEN_KEY = "orgmanager_access_token";
 const REFRESH_TOKEN_KEY = "orgmanager_refresh_token";
 
@@ -353,14 +362,6 @@ export async function register(
 export async function getMe(): Promise<MeResponse> {
   return request<MeResponse>("/api/auth/me", { method: "GET" }, true);
 }
-export type VerifyEmailResponse = {
-  success?: boolean;
-  message?: string;
-};
-
-export type ResendVerificationEmailRequest = {
-  email: string;
-};
 
 export async function resendVerificationEmail(
   body: ResendVerificationEmailRequest
@@ -724,6 +725,7 @@ export async function getRecentOrganizationPayments(
     true
   );
 }
+
 export async function cancelOrganizationPayment(
   organizationId: string,
   paymentId: string
@@ -736,19 +738,17 @@ export async function cancelOrganizationPayment(
     true
   );
 }
+
 export async function cancelOrganizationMemberPeriodLastPayment(
   organizationId: string,
   memberId: string,
   periodId: string
 ): Promise<void> {
-  const response = await fetch(
-    `${API_BASE_URL}/api/organizations/${organizationId}/payments/members/${memberId}/payment-periods/${periodId}/cancel-last-payment`,
+  await request<null>(
+    `/api/organizations/${organizationId}/payments/members/${memberId}/payment-periods/${periodId}/cancel-last-payment`,
     {
       method: "POST",
-      headers: await createJsonHeaders(),
-      credentials: "include",
-    }
+    },
+    true
   );
-
-  await ensureSuccessResponse(response);
 }

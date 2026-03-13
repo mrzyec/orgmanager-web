@@ -6,18 +6,38 @@ import type { ReactNode } from "react";
 type ButtonTone = "primary" | "secondary" | "success" | "danger" | "warning";
 type ButtonSize = "sm" | "md";
 
-function getButtonToneClass(tone: ButtonTone) {
+function getButtonToneStyle(tone: ButtonTone) {
   switch (tone) {
     case "primary":
-      return "border-black bg-black text-white hover:border-gray-700 hover:bg-gray-900";
+      return {
+        borderColor: "var(--primary)",
+        backgroundColor: "var(--primary)",
+        color: "var(--primary-contrast)",
+      };
     case "success":
-      return "border-green-300 bg-green-50 text-green-700 hover:border-green-400 hover:bg-green-100";
+      return {
+        borderColor: "var(--success-border)",
+        backgroundColor: "var(--success-bg)",
+        color: "var(--success-text)",
+      };
     case "danger":
-      return "border-red-300 bg-red-50 text-red-700 hover:border-red-400 hover:bg-red-100";
+      return {
+        borderColor: "var(--danger-border)",
+        backgroundColor: "var(--danger-bg)",
+        color: "var(--danger-text)",
+      };
     case "warning":
-      return "border-yellow-300 bg-yellow-50 text-yellow-700 hover:border-yellow-400 hover:bg-yellow-100";
+      return {
+        borderColor: "var(--warning-border)",
+        backgroundColor: "var(--warning-bg)",
+        color: "var(--warning-text)",
+      };
     default:
-      return "border-gray-300 bg-white text-gray-800 hover:border-gray-500 hover:bg-gray-50";
+      return {
+        borderColor: "var(--border)",
+        backgroundColor: "var(--surface-solid)",
+        color: "var(--text)",
+      };
   }
 }
 
@@ -27,14 +47,27 @@ function getButtonSizeClass(size: ButtonSize) {
     : "rounded-2xl px-4 py-2.5 text-sm font-medium";
 }
 
+function getButtonHoverClass(tone: ButtonTone) {
+  switch (tone) {
+    case "primary":
+      return "hover:brightness-110";
+    case "success":
+    case "danger":
+    case "warning":
+      return "hover:brightness-[0.98]";
+    default:
+      return "hover:brightness-[0.98]";
+  }
+}
+
 function getButtonBaseClass(tone: ButtonTone, size: ButtonSize) {
   return [
     "inline-flex items-center justify-center shadow-sm transition-all duration-200",
     "hover:shadow-md hover:-translate-y-0.5 active:translate-y-[1px] active:scale-[0.99]",
     "disabled:cursor-not-allowed disabled:opacity-60",
     "border",
-    getButtonToneClass(tone),
     getButtonSizeClass(size),
+    getButtonHoverClass(tone),
   ].join(" ");
 }
 
@@ -62,6 +95,7 @@ export function AppButton({
       type={type}
       disabled={disabled}
       onClick={onClick}
+      style={getButtonToneStyle(tone)}
       className={`${getButtonBaseClass(tone, size)} ${className}`.trim()}
     >
       {children}
@@ -87,6 +121,7 @@ export function AppLinkButton({
   return (
     <Link
       href={href}
+      style={getButtonToneStyle(tone)}
       className={`${getButtonBaseClass(tone, size)} ${className}`.trim()}
     >
       {children}
@@ -100,7 +135,7 @@ export function AppPage({
   children: ReactNode;
 }) {
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,#f8fafc,#eef2f7)] px-4 py-8">
+    <main className="min-h-screen px-4 py-8" style={{ background: "var(--app-bg)" }}>
       <div className="mx-auto max-w-5xl space-y-6">{children}</div>
     </main>
   );
@@ -120,13 +155,26 @@ export function AppHero({
   return (
     <div className="flex items-start justify-between gap-4">
       <div>
-        <div className="inline-flex rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-medium text-gray-600 shadow-sm">
+        <div
+          className="inline-flex rounded-full border px-3 py-1 text-xs font-medium shadow-sm"
+          style={{
+            borderColor: "var(--border)",
+            backgroundColor: "var(--surface-solid)",
+            color: "var(--text-muted)",
+          }}
+        >
           {badge}
         </div>
-        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-gray-900">
+        <h1
+          className="mt-3 text-3xl font-semibold tracking-tight"
+          style={{ color: "var(--text)" }}
+        >
           {title}
         </h1>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-600">
+        <p
+          className="mt-2 max-w-2xl text-sm leading-6"
+          style={{ color: "var(--text-muted)" }}
+        >
           {description}
         </p>
       </div>
@@ -145,7 +193,12 @@ export function AppCard({
 }) {
   return (
     <section
-      className={`rounded-[30px] border border-white/70 bg-white/90 p-6 shadow-[0_12px_34px_rgba(15,23,42,0.07)] backdrop-blur ${className}`.trim()}
+      className={`rounded-[30px] border p-6 ${className}`.trim()}
+      style={{
+        borderColor: "var(--border)",
+        backgroundColor: "var(--surface)",
+        boxShadow: "var(--shadow-card)",
+      }}
     >
       {children}
     </section>
@@ -164,10 +217,15 @@ export function AppSectionHeader({
   return (
     <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div>
-        <h2 className="text-xl font-semibold tracking-tight text-gray-900">
+        <h2
+          className="text-xl font-semibold tracking-tight"
+          style={{ color: "var(--text)" }}
+        >
           {title}
         </h2>
-        <p className="mt-1 text-sm text-gray-600">{description}</p>
+        <p className="mt-1 text-sm" style={{ color: "var(--text-muted)" }}>
+          {description}
+        </p>
       </div>
 
       {right}

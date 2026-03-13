@@ -14,7 +14,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="tr">
-      <body>
+      <body className="min-h-screen bg-[#e5e7eb] text-slate-900">
         <ToastProvider>{children}</ToastProvider>
       </body>
     </html>

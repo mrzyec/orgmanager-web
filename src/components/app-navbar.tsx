@@ -11,9 +11,20 @@ type AppNavbarProps = {
 
 function UserBadge({ email }: { email?: string | null }) {
   return (
-    <div className="inline-flex h-[46px] max-w-full items-center rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm">
-      <span className="mr-2 shrink-0 font-medium text-slate-500">Kullanıcı:</span>
-      <span className="font-semibold text-slate-900">{email ?? "-"}</span>
+    <div
+      className="inline-flex h-[46px] max-w-full items-center rounded-2xl border px-4 py-3 text-sm shadow-sm"
+      style={{
+        borderColor: "var(--border)",
+        backgroundColor: "var(--surface-solid)",
+        color: "var(--text)",
+      }}
+    >
+      <span className="mr-2 shrink-0 font-medium" style={{ color: "var(--text-muted)" }}>
+        Kullanıcı:
+      </span>
+      <span className="font-semibold" style={{ color: "var(--text)" }}>
+        {email ?? "-"}
+      </span>
     </div>
   );
 }
@@ -25,14 +36,28 @@ export function AppNavbar({
   actions,
 }: AppNavbarProps) {
   return (
-    <div className="rounded-[28px] border border-slate-200 bg-gradient-to-r from-slate-50 via-white to-blue-50/40 p-5 shadow-sm">
+    <div
+      className="rounded-[28px] border p-5 shadow-sm"
+      style={{
+        borderColor: "var(--border)",
+        background: `linear-gradient(to right, var(--navbar-start), var(--navbar-mid), var(--navbar-end))`,
+      }}
+    >
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
-          <div className="text-sm font-medium text-slate-500">OrgManager</div>
-          <div className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">
+          <div className="text-sm font-medium" style={{ color: "var(--text-muted)" }}>
+            OrgManager
+          </div>
+          <div
+            className="mt-1 text-2xl font-semibold tracking-tight"
+            style={{ color: "var(--text)" }}
+          >
             {title}
           </div>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+          <p
+            className="mt-2 max-w-3xl text-sm leading-6"
+            style={{ color: "var(--text-muted)" }}
+          >
             {subtitle}
           </p>
         </div>

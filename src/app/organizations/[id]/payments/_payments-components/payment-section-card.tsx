@@ -16,12 +16,25 @@ export default function PaymentSectionCard({
   rightSlot,
 }: PaymentSectionCardProps) {
   return (
-    <div className="rounded-[28px] border border-slate-200 bg-white/95 shadow-sm">
-      <div className="flex flex-col gap-3 border-b border-slate-200 px-5 py-4 md:flex-row md:items-center md:justify-between">
+    <div
+      className="rounded-[28px] border shadow-sm"
+      style={{
+        borderColor: "var(--border)",
+        backgroundColor: "var(--surface)",
+      }}
+    >
+      <div
+        className="flex flex-col gap-3 border-b px-5 py-4 md:flex-row md:items-center md:justify-between"
+        style={{ borderColor: "var(--border)" }}
+      >
         <div>
-          <h2 className="text-base font-semibold text-slate-900">{title}</h2>
+          <h2 className="text-base font-semibold" style={{ color: "var(--text)" }}>
+            {title}
+          </h2>
           {description ? (
-            <p className="mt-1 text-sm text-slate-500">{description}</p>
+            <p className="mt-1 text-sm" style={{ color: "var(--text-muted)" }}>
+              {description}
+            </p>
           ) : null}
         </div>
         {rightSlot}

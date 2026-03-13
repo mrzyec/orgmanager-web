@@ -26,18 +26,30 @@ export default function OrganizationSidebarLayout({
   return (
     <div className="grid gap-6 xl:grid-cols-[250px_minmax(0,1fr)]">
       <aside className="xl:sticky xl:top-6 xl:self-start">
-        <div className="rounded-[28px] border border-slate-200 bg-gradient-to-b from-slate-50 via-white to-slate-50 p-5 shadow-sm">
+        <div
+          className="rounded-[28px] border p-5 shadow-sm"
+          style={{
+            borderColor: "var(--border)",
+            background: `linear-gradient(to bottom, var(--sidebar-start), var(--sidebar-mid), var(--sidebar-end))`,
+          }}
+        >
           <div className="mb-5">
-            <div className="text-sm font-medium text-slate-500">
+            <div className="text-sm font-medium" style={{ color: "var(--text-muted)" }}>
               Organizasyon menüsü
             </div>
 
-            <div className="mt-1 text-xl font-semibold tracking-tight text-slate-900">
+            <div
+              className="mt-1 text-xl font-semibold tracking-tight"
+              style={{ color: "var(--text)" }}
+            >
               {title}
             </div>
 
             {subtitle ? (
-              <p className="mt-2 text-sm leading-6 text-slate-600">
+              <p
+                className="mt-2 text-sm leading-6"
+                style={{ color: "var(--text-muted)" }}
+              >
                 {subtitle}
               </p>
             ) : null}
@@ -51,17 +63,33 @@ export default function OrganizationSidebarLayout({
                 prefetch
                 className={`block rounded-2xl border px-4 py-3 transition-all duration-200 ${
                   item.isActive
-                    ? "border-slate-900 bg-slate-900 text-white shadow-md"
-                    : "border-slate-200 bg-white text-slate-800 hover:-translate-y-0.5 hover:border-slate-300 hover:bg-slate-50 hover:shadow-sm"
+                    ? "shadow-md"
+                    : "hover:-translate-y-0.5 hover:shadow-sm"
                 }`}
+                style={
+                  item.isActive
+                    ? {
+                        borderColor: "var(--primary)",
+                        backgroundColor: "var(--primary)",
+                        color: "var(--primary-contrast)",
+                      }
+                    : {
+                        borderColor: "var(--border)",
+                        backgroundColor: "var(--surface-solid)",
+                        color: "var(--text)",
+                      }
+                }
               >
                 <div className="text-sm font-semibold">{item.label}</div>
 
                 {item.description ? (
                   <div
-                    className={`mt-1 text-xs leading-5 ${
-                      item.isActive ? "text-slate-200" : "text-slate-500"
-                    }`}
+                    className="mt-1 text-xs leading-5"
+                    style={{
+                      color: item.isActive
+                        ? "var(--text-on-dark-muted)"
+                        : "var(--text-muted)",
+                    }}
                   >
                     {item.description}
                   </div>
@@ -70,12 +98,24 @@ export default function OrganizationSidebarLayout({
             ))}
           </div>
 
-          <div className="mt-5 rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-3">
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <div
+            className="mt-5 rounded-2xl border border-dashed px-4 py-3"
+            style={{
+              borderColor: "var(--border)",
+              backgroundColor: "var(--surface-soft)",
+            }}
+          >
+            <div
+              className="text-xs font-semibold uppercase tracking-wide"
+              style={{ color: "var(--text-muted)" }}
+            >
               Sonraki adım
             </div>
 
-            <div className="mt-1 text-sm leading-6 text-slate-600">
+            <div
+              className="mt-1 text-sm leading-6"
+              style={{ color: "var(--text-muted)" }}
+            >
               Bu menü yapısını ileride ek modüllerle genişletebiliriz.
             </div>
           </div>

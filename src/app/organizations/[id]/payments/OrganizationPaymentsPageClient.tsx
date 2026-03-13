@@ -88,7 +88,10 @@ export default function OrganizationPaymentsPageClient({
         onConfirm={vm.confirmCancelPayment}
       />
 
-      <div className="space-y-6 rounded-[32px] bg-[#e5e7eb] p-3">
+      <div
+        className="space-y-6 rounded-[32px] p-3"
+        style={{ background: "var(--app-bg)" }}
+      >
         <PaymentDashboardHeroCard
           collectionType={vm.collectionType}
           activePeriodLabel={vm.activePeriodLabel}
@@ -99,7 +102,14 @@ export default function OrganizationPaymentsPageClient({
         />
 
         {vm.pageError ? (
-          <div className="rounded-[28px] border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+          <div
+            className="rounded-[28px] border p-4 text-sm"
+            style={{
+              borderColor: "var(--danger-border)",
+              backgroundColor: "var(--danger-bg)",
+              color: "var(--danger-text)",
+            }}
+          >
             {vm.pageError}
           </div>
         ) : null}
@@ -109,7 +119,7 @@ export default function OrganizationPaymentsPageClient({
             title="Aidat Sistemi"
             value={vm.getCollectionTypeLabel(vm.collectionType)}
             subtitle={`Aktif dönem: ${vm.activePeriodLabel}`}
-            accentClass="bg-slate-900"
+            accentTone="primary"
             onClick={() => vm.setIsSettingsPanelOpen((prev) => !prev)}
             isActive={vm.isSettingsPanelOpen}
             badge={
@@ -125,35 +135,35 @@ export default function OrganizationPaymentsPageClient({
             title="Ödeme Beklenen Üye"
             value={String(vm.members.length)}
             subtitle={`Hiç ödeme yapmayan: ${vm.neverPaidCount}`}
-            accentClass="bg-sky-500"
+            accentTone="info"
           />
 
           <PaymentStatCard
             title="Tam Ödeyen"
             value={String(vm.paidCount)}
             subtitle={`Tahsilat oranı: %${vm.collectionRate.toFixed(0)}`}
-            accentClass="bg-emerald-500"
+            accentTone="success"
           />
 
           <PaymentStatCard
             title="Kısmi Ödeyen"
             value={String(vm.partialCount)}
             subtitle="Bu döneme ait eksik ödeme var"
-            accentClass="bg-amber-500"
+            accentTone="warning"
           />
 
           <PaymentStatCard
             title="Geciken Üye"
             value={String(vm.overdueCount)}
             subtitle="Açık geçmiş dönem borcu bulunuyor"
-            accentClass="bg-rose-500"
+            accentTone="danger"
           />
 
           <PaymentStatCard
             title="Kalan Alacak"
             value={formatCurrency(vm.totalRemainingAmount, vm.activeCurrency)}
             subtitle={`Bekleyen: ${String(vm.unpaidCount)}`}
-            accentClass="bg-indigo-500"
+            accentTone="muted"
           />
         </div>
 

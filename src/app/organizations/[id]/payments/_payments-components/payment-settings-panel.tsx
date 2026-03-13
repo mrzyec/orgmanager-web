@@ -95,15 +95,27 @@ export default function PaymentSettingsPanel({
           type="button"
           onClick={onSaveAll}
           disabled={isSavingAll}
-          className="rounded-2xl bg-slate-900 px-5 py-3 text-sm font-medium text-white transition hover:bg-slate-800 disabled:opacity-60"
+          className="rounded-2xl px-5 py-3 text-sm font-medium transition disabled:opacity-60"
+          style={{
+            backgroundColor: "var(--primary)",
+            color: "var(--primary-contrast)",
+          }}
         >
           {isSavingAll ? "Uygulanıyor..." : "Aidat Ayarlarını Uygula"}
         </button>
       }
     >
       <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
-        <label className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-          <div className="text-sm font-medium text-slate-700">Aidat aktif</div>
+        <label
+          className="rounded-2xl border p-3"
+          style={{
+            borderColor: "var(--border)",
+            backgroundColor: "var(--surface-soft)",
+          }}
+        >
+          <div className="text-sm font-medium" style={{ color: "var(--text)" }}>
+            Aidat aktif
+          </div>
           <select
             value={settingsForm.isEnabled ? "true" : "false"}
             onChange={(e) =>
@@ -112,7 +124,12 @@ export default function PaymentSettingsPanel({
                 isEnabled: e.target.value === "true",
               })
             }
-            className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none"
+            className="mt-2 w-full rounded-xl border px-3 py-2 text-sm outline-none"
+            style={{
+              borderColor: "var(--border)",
+              backgroundColor: "var(--surface-solid)",
+              color: "var(--text)",
+            }}
           >
             <option value="true">Açık</option>
             <option value="false">Kapalı</option>
@@ -120,11 +137,15 @@ export default function PaymentSettingsPanel({
         </label>
 
         <label
-          className={`rounded-2xl border border-slate-200 bg-slate-50 p-3 ${
-            controlsDisabled ? "opacity-60" : ""
-          }`}
+          className={`rounded-2xl border p-3 ${controlsDisabled ? "opacity-60" : ""}`}
+          style={{
+            borderColor: "var(--border)",
+            backgroundColor: "var(--surface-soft)",
+          }}
         >
-          <div className="text-sm font-medium text-slate-700">Aidat tipi</div>
+          <div className="text-sm font-medium" style={{ color: "var(--text)" }}>
+            Aidat tipi
+          </div>
           <select
             value={settingsForm.period}
             onChange={(e) => {
@@ -138,7 +159,12 @@ export default function PaymentSettingsPanel({
               });
             }}
             disabled={controlsDisabled}
-            className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none disabled:bg-slate-100 disabled:text-slate-400"
+            className="mt-2 w-full rounded-xl border px-3 py-2 text-sm outline-none disabled:opacity-60"
+            style={{
+              borderColor: "var(--border)",
+              backgroundColor: "var(--surface-solid)",
+              color: "var(--text)",
+            }}
           >
             <option value="Monthly">Aylık</option>
             <option value="Yearly">Yıllık</option>
@@ -146,11 +172,15 @@ export default function PaymentSettingsPanel({
         </label>
 
         <div
-          className={`rounded-2xl border border-slate-200 bg-slate-50 p-3 ${
-            controlsDisabled ? "opacity-60" : ""
-          }`}
+          className={`rounded-2xl border p-3 ${controlsDisabled ? "opacity-60" : ""}`}
+          style={{
+            borderColor: "var(--border)",
+            backgroundColor: "var(--surface-soft)",
+          }}
         >
-          <div className="text-sm font-medium text-slate-700">{startDateLabel}</div>
+          <div className="text-sm font-medium" style={{ color: "var(--text)" }}>
+            {startDateLabel}
+          </div>
 
           <div className="mt-2 grid grid-cols-3 gap-2">
             <select
@@ -162,7 +192,12 @@ export default function PaymentSettingsPanel({
                 })
               }
               disabled={controlsDisabled}
-              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none disabled:bg-slate-100 disabled:text-slate-400"
+              className="w-full rounded-xl border px-3 py-2 text-sm outline-none disabled:opacity-60"
+              style={{
+                borderColor: "var(--border)",
+                backgroundColor: "var(--surface-solid)",
+                color: "var(--text)",
+              }}
             >
               {DAY_OPTIONS.map((day) => (
                 <option key={day} value={day}>
@@ -180,7 +215,12 @@ export default function PaymentSettingsPanel({
                 })
               }
               disabled={controlsDisabled}
-              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none disabled:bg-slate-100 disabled:text-slate-400"
+              className="w-full rounded-xl border px-3 py-2 text-sm outline-none disabled:opacity-60"
+              style={{
+                borderColor: "var(--border)",
+                backgroundColor: "var(--surface-solid)",
+                color: "var(--text)",
+              }}
             >
               {MONTH_OPTIONS.map((month) => (
                 <option key={month} value={month}>
@@ -198,7 +238,12 @@ export default function PaymentSettingsPanel({
                 })
               }
               disabled={controlsDisabled}
-              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none disabled:bg-slate-100 disabled:text-slate-400"
+              className="w-full rounded-xl border px-3 py-2 text-sm outline-none disabled:opacity-60"
+              style={{
+                borderColor: "var(--border)",
+                backgroundColor: "var(--surface-solid)",
+                color: "var(--text)",
+              }}
             >
               {YEAR_OPTIONS.map((year) => (
                 <option key={year} value={year}>
@@ -208,7 +253,7 @@ export default function PaymentSettingsPanel({
             </select>
           </div>
 
-          <p className="mt-2 text-xs text-slate-500">
+          <p className="mt-2 text-xs" style={{ color: "var(--text-muted)" }}>
             {settingsForm.period === "Yearly"
               ? "Yıllık sistemde yalnızca başlangıç yılı esas alınır."
               : "Borç üretimi bu tarihten itibaren başlar."}
@@ -217,23 +262,37 @@ export default function PaymentSettingsPanel({
       </div>
 
       <div
-        className={`mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3 ${
-          controlsDisabled ? "opacity-60" : ""
-        }`}
+        className={`mt-4 rounded-2xl border p-3 ${controlsDisabled ? "opacity-60" : ""}`}
+        style={{
+          borderColor: "var(--border)",
+          backgroundColor: "var(--surface-soft)",
+        }}
       >
         <div className="mb-3">
-          <div className="text-sm font-semibold text-slate-900">Aidat Planı</div>
+          <div className="text-sm font-semibold" style={{ color: "var(--text)" }}>
+            Aidat Planı
+          </div>
           <div className="mt-1 space-y-2">
-            <p className="text-sm text-slate-500">{planDescription}</p>
-            <p className="text-xs text-amber-700">
+            <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+              {planDescription}
+            </p>
+            <p className="text-xs" style={{ color: "var(--warning-text)" }}>
               Not: Bu yıl için ödeme alınmışsa plan silinemez.
             </p>
           </div>
         </div>
 
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_0.9fr]">
-          <label className="rounded-2xl border border-slate-200 bg-white p-3">
-            <div className="text-sm font-medium text-slate-700">{planAmountLabel}</div>
+          <label
+            className="rounded-2xl border p-3"
+            style={{
+              borderColor: "var(--border)",
+              backgroundColor: "var(--surface-solid)",
+            }}
+          >
+            <div className="text-sm font-medium" style={{ color: "var(--text)" }}>
+              {planAmountLabel}
+            </div>
             <input
               type="number"
               min="0"
@@ -243,13 +302,26 @@ export default function PaymentSettingsPanel({
                 onPlanFormChange({ ...planForm, amount: e.target.value })
               }
               disabled={controlsDisabled}
-              className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none disabled:bg-slate-100 disabled:text-slate-400"
+              className="mt-2 w-full rounded-xl border px-3 py-2 text-sm outline-none disabled:opacity-60"
               placeholder="Tutar gir"
+              style={{
+                borderColor: "var(--border)",
+                backgroundColor: "var(--surface-solid)",
+                color: "var(--text)",
+              }}
             />
           </label>
 
-          <label className="rounded-2xl border border-slate-200 bg-white p-3">
-            <div className="text-sm font-medium text-slate-700">Para birimi</div>
+          <label
+            className="rounded-2xl border p-3"
+            style={{
+              borderColor: "var(--border)",
+              backgroundColor: "var(--surface-solid)",
+            }}
+          >
+            <div className="text-sm font-medium" style={{ color: "var(--text)" }}>
+              Para birimi
+            </div>
             <select
               value={planForm.currency}
               onChange={(e) =>
@@ -259,7 +331,12 @@ export default function PaymentSettingsPanel({
                 })
               }
               disabled={controlsDisabled}
-              className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none disabled:bg-slate-100 disabled:text-slate-400"
+              className="mt-2 w-full rounded-xl border px-3 py-2 text-sm outline-none disabled:opacity-60"
+              style={{
+                borderColor: "var(--border)",
+                backgroundColor: "var(--surface-solid)",
+                color: "var(--text)",
+              }}
             >
               <option value="TRY">TRY</option>
               <option value="USD">USD</option>
@@ -268,11 +345,17 @@ export default function PaymentSettingsPanel({
           </label>
         </div>
 
-        <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-slate-500">
-          <span className="rounded-full bg-white px-3 py-1.5 shadow-sm">
+        <div className="mt-3 flex flex-wrap items-center gap-3 text-sm" style={{ color: "var(--text-muted)" }}>
+          <span
+            className="rounded-full px-3 py-1.5 shadow-sm"
+            style={{ backgroundColor: "var(--surface-solid)" }}
+          >
             Plan yılı: {settingsForm.startYear || "—"}
           </span>
-          <span className="rounded-full bg-white px-3 py-1.5 shadow-sm">
+          <span
+            className="rounded-full px-3 py-1.5 shadow-sm"
+            style={{ backgroundColor: "var(--surface-solid)" }}
+          >
             Tip: {settingsForm.period === "Yearly" ? "Yıllık" : "Aylık"}
           </span>
         </div>
@@ -280,7 +363,7 @@ export default function PaymentSettingsPanel({
         <div className="mt-4 overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead>
-              <tr className="border-b border-slate-200 text-left text-slate-500">
+              <tr className="border-b text-left" style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}>
                 <th className="px-3 py-3">Yıl</th>
                 <th className="px-3 py-3">Tip</th>
                 <th className="px-3 py-3">Tutar</th>
@@ -293,7 +376,7 @@ export default function PaymentSettingsPanel({
             <tbody>
               {compatiblePlans.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-3 py-6 text-center text-slate-500">
+                  <td colSpan={7} className="px-3 py-6 text-center" style={{ color: "var(--text-muted)" }}>
                     Bu aidat tipine uygun plan henüz tanımlanmadı.
                   </td>
                 </tr>
@@ -301,9 +384,13 @@ export default function PaymentSettingsPanel({
                 compatiblePlans.map((plan) => (
                   <tr
                     key={plan.id}
-                    className={`border-b border-slate-100 text-slate-700 ${
-                      selectedPlanYear === plan.year ? "bg-slate-50" : ""
-                    }`}
+                    className="border-b"
+                    style={{
+                      borderColor: "var(--border)",
+                      color: "var(--text)",
+                      backgroundColor:
+                        selectedPlanYear === plan.year ? "var(--surface-soft)" : "transparent",
+                    }}
                   >
                     <td className="px-3 py-3 font-medium">{plan.year}</td>
                     <td className="px-3 py-3">
@@ -322,7 +409,12 @@ export default function PaymentSettingsPanel({
                         type="button"
                         onClick={() => onDeletePlan(plan)}
                         disabled={deletingPlanYear === plan.year}
-                        className="rounded-2xl border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="rounded-2xl border px-3 py-2 text-xs font-medium transition hover:brightness-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                        style={{
+                          borderColor: "var(--border)",
+                          backgroundColor: "var(--surface-solid)",
+                          color: "var(--text)",
+                        }}
                       >
                         {deletingPlanYear === plan.year ? "Siliniyor..." : "Planı sil"}
                       </button>
@@ -334,10 +426,18 @@ export default function PaymentSettingsPanel({
           </table>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3">
+        <div
+          className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-3"
+          style={{
+            borderColor: "var(--border)",
+            backgroundColor: "var(--surface-solid)",
+          }}
+        >
           <div>
-            <div className="text-sm font-medium text-slate-900">Plan revizyonları</div>
-            <div className="text-xs text-slate-500">
+            <div className="text-sm font-medium" style={{ color: "var(--text)" }}>
+              Plan revizyonları
+            </div>
+            <div className="text-xs" style={{ color: "var(--text-muted)" }}>
               İhtiyaç halinde açıp yeni revizyon ekleyebilirsin.
             </div>
           </div>
@@ -346,7 +446,12 @@ export default function PaymentSettingsPanel({
             type="button"
             onClick={onToggleRevisionPanel}
             disabled={controlsDisabled}
-            className="rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+            className="rounded-2xl border px-4 py-2 text-sm font-medium transition hover:brightness-[0.98] disabled:opacity-60"
+            style={{
+              borderColor: "var(--border)",
+              backgroundColor: "var(--surface-solid)",
+              color: "var(--text)",
+            }}
           >
             {isRevisionPanelOpen
               ? "Revizyon alanını kapat"
@@ -357,18 +462,32 @@ export default function PaymentSettingsPanel({
 
       {isRevisionPanelOpen ? (
         <div
-          className={`mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3 ${
-            controlsDisabled ? "opacity-60" : ""
-          }`}
+          className={`mt-4 rounded-2xl border p-3 ${controlsDisabled ? "opacity-60" : ""}`}
+          style={{
+            borderColor: "var(--border)",
+            backgroundColor: "var(--surface-soft)",
+          }}
         >
           <div className="mb-3">
-            <div className="text-sm font-semibold text-slate-900">Plan Revizyonu</div>
-            <p className="mt-1 text-sm text-slate-500">{revisionDescription}</p>
+            <div className="text-sm font-semibold" style={{ color: "var(--text)" }}>
+              Plan Revizyonu
+            </div>
+            <p className="mt-1 text-sm" style={{ color: "var(--text-muted)" }}>
+              {revisionDescription}
+            </p>
           </div>
 
           <div className="grid grid-cols-1 gap-3 xl:grid-cols-[1.1fr_1fr_0.8fr_auto]">
-            <div className="rounded-2xl border border-slate-200 bg-white p-3">
-              <div className="text-sm font-medium text-slate-700">{revisionDateLabel}</div>
+            <div
+              className="rounded-2xl border p-3"
+              style={{
+                borderColor: "var(--border)",
+                backgroundColor: "var(--surface-solid)",
+              }}
+            >
+              <div className="text-sm font-medium" style={{ color: "var(--text)" }}>
+                {revisionDateLabel}
+              </div>
 
               <div className="mt-2 grid grid-cols-3 gap-2">
                 <select
@@ -380,7 +499,12 @@ export default function PaymentSettingsPanel({
                     })
                   }
                   disabled={controlsDisabled}
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none disabled:bg-slate-100 disabled:text-slate-400"
+                  className="w-full rounded-xl border px-3 py-2 text-sm outline-none disabled:opacity-60"
+                  style={{
+                    borderColor: "var(--border)",
+                    backgroundColor: "var(--surface-solid)",
+                    color: "var(--text)",
+                  }}
                 >
                   {DAY_OPTIONS.map((day) => (
                     <option key={day} value={day}>
@@ -398,7 +522,12 @@ export default function PaymentSettingsPanel({
                     })
                   }
                   disabled={controlsDisabled}
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none disabled:bg-slate-100 disabled:text-slate-400"
+                  className="w-full rounded-xl border px-3 py-2 text-sm outline-none disabled:opacity-60"
+                  style={{
+                    borderColor: "var(--border)",
+                    backgroundColor: "var(--surface-solid)",
+                    color: "var(--text)",
+                  }}
                 >
                   {MONTH_OPTIONS.map((month) => (
                     <option key={month} value={month}>
@@ -416,7 +545,12 @@ export default function PaymentSettingsPanel({
                     })
                   }
                   disabled={controlsDisabled}
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none disabled:bg-slate-100 disabled:text-slate-400"
+                  className="w-full rounded-xl border px-3 py-2 text-sm outline-none disabled:opacity-60"
+                  style={{
+                    borderColor: "var(--border)",
+                    backgroundColor: "var(--surface-solid)",
+                    color: "var(--text)",
+                  }}
                 >
                   {YEAR_OPTIONS.map((year) => (
                     <option key={year} value={year}>
@@ -427,8 +561,14 @@ export default function PaymentSettingsPanel({
               </div>
             </div>
 
-            <label className="rounded-2xl border border-slate-200 bg-white p-3">
-              <div className="text-sm font-medium text-slate-700">
+            <label
+              className="rounded-2xl border p-3"
+              style={{
+                borderColor: "var(--border)",
+                backgroundColor: "var(--surface-solid)",
+              }}
+            >
+              <div className="text-sm font-medium" style={{ color: "var(--text)" }}>
                 {settingsForm.period === "Yearly" ? "Yeni yıllık tutar" : "Yeni dönem tutarı"}
               </div>
               <input
@@ -443,13 +583,26 @@ export default function PaymentSettingsPanel({
                   })
                 }
                 disabled={controlsDisabled}
-                className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none disabled:bg-slate-100 disabled:text-slate-400"
+                className="mt-2 w-full rounded-xl border px-3 py-2 text-sm outline-none disabled:opacity-60"
                 placeholder="Tutar gir"
+                style={{
+                  borderColor: "var(--border)",
+                  backgroundColor: "var(--surface-solid)",
+                  color: "var(--text)",
+                }}
               />
             </label>
 
-            <label className="rounded-2xl border border-slate-200 bg-white p-3">
-              <div className="text-sm font-medium text-slate-700">Para birimi</div>
+            <label
+              className="rounded-2xl border p-3"
+              style={{
+                borderColor: "var(--border)",
+                backgroundColor: "var(--surface-solid)",
+              }}
+            >
+              <div className="text-sm font-medium" style={{ color: "var(--text)" }}>
+                Para birimi
+              </div>
               <select
                 value={revisionForm.currency}
                 onChange={(e) =>
@@ -459,7 +612,12 @@ export default function PaymentSettingsPanel({
                   })
                 }
                 disabled={controlsDisabled}
-                className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none disabled:bg-slate-100 disabled:text-slate-400"
+                className="mt-2 w-full rounded-xl border px-3 py-2 text-sm outline-none disabled:opacity-60"
+                style={{
+                  borderColor: "var(--border)",
+                  backgroundColor: "var(--surface-solid)",
+                  color: "var(--text)",
+                }}
               >
                 <option value="TRY">TRY</option>
                 <option value="USD">USD</option>
@@ -472,7 +630,11 @@ export default function PaymentSettingsPanel({
                 type="button"
                 onClick={onAddRevision}
                 disabled={controlsDisabled || isAddingRevision}
-                className="w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-medium text-white transition hover:bg-slate-800 disabled:opacity-60"
+                className="w-full rounded-2xl px-4 py-3 text-sm font-medium transition disabled:opacity-60"
+                style={{
+                  backgroundColor: "var(--primary)",
+                  color: "var(--primary-contrast)",
+                }}
               >
                 {isAddingRevision ? "Ekleniyor..." : "Revizyon Ekle"}
               </button>
@@ -480,12 +642,19 @@ export default function PaymentSettingsPanel({
           </div>
 
           <div className="mt-4">
-            <div className="mb-2 text-sm font-medium text-slate-700">
+            <div className="mb-2 text-sm font-medium" style={{ color: "var(--text)" }}>
               Seçili planın revizyon geçmişi
             </div>
 
             {!selectedPlan || !selectedPlan.revisions?.length ? (
-              <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-4 text-sm text-slate-500">
+              <div
+                className="rounded-2xl border border-dashed p-4 text-sm"
+                style={{
+                  borderColor: "var(--border)",
+                  backgroundColor: "var(--surface-solid)",
+                  color: "var(--text-muted)",
+                }}
+              >
                 Seçili plan için revizyon kaydı bulunmuyor.
               </div>
             ) : (
@@ -495,34 +664,58 @@ export default function PaymentSettingsPanel({
                   .map((revision: OrganizationPaymentPlanRevisionDto) => (
                     <div
                       key={revision.id}
-                      className="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-white p-3 md:flex-row md:items-center md:justify-between"
+                      className="flex flex-col gap-2 rounded-2xl border p-3 md:flex-row md:items-center md:justify-between"
+                      style={{
+                        borderColor: "var(--border)",
+                        backgroundColor: "var(--surface-solid)",
+                      }}
                     >
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="rounded-full bg-slate-900 px-2.5 py-1 text-xs font-medium text-white">
+                          <span
+                            className="rounded-full px-2.5 py-1 text-xs font-medium"
+                            style={{
+                              backgroundColor: "var(--primary)",
+                              color: "var(--primary-contrast)",
+                            }}
+                          >
                             Revizyon #{revision.revisionNo}
                           </span>
-                          <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs text-slate-600">
+                          <span
+                            className="rounded-full border px-2.5 py-1 text-xs"
+                            style={{
+                              borderColor: "var(--border)",
+                              backgroundColor: "var(--surface-soft)",
+                              color: "var(--text-muted)",
+                            }}
+                          >
                             Başlangıç:{" "}
                             {formatRevisionDateLabel(
                               revision.effectiveFromUtc,
                               revision.period
                             )}
                           </span>
-                          <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs text-slate-600">
+                          <span
+                            className="rounded-full border px-2.5 py-1 text-xs"
+                            style={{
+                              borderColor: "var(--border)",
+                              backgroundColor: "var(--surface-soft)",
+                              color: "var(--text-muted)",
+                            }}
+                          >
                             {revision.isActive ? "Aktif" : "Pasif"}
                           </span>
                         </div>
 
-                        <div className="mt-2 text-sm text-slate-600">
+                        <div className="mt-2 text-sm" style={{ color: "var(--text-muted)" }}>
                           Tutar:{" "}
-                          <span className="font-semibold text-slate-900">
+                          <span className="font-semibold" style={{ color: "var(--text)" }}>
                             {formatCurrency(revision.amount, revision.currency)}
                           </span>
                         </div>
                       </div>
 
-                      <div className="text-xs text-slate-500">
+                      <div className="text-xs" style={{ color: "var(--text-muted)" }}>
                         Güncelleme: {formatDate(revision.updatedAtUtc)}
                       </div>
                     </div>

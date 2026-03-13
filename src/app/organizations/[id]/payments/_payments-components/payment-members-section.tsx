@@ -27,16 +27,32 @@ function getStatusLabel(status: MemberPaymentStatus) {
   }
 }
 
-function getStatusBadgeClass(status: MemberPaymentStatus) {
+function getStatusBadgeStyle(status: MemberPaymentStatus) {
   switch (status) {
     case "paid":
-      return "border border-emerald-200 bg-emerald-50 text-emerald-700";
+      return {
+        borderColor: "var(--success-border)",
+        backgroundColor: "var(--success-bg)",
+        color: "var(--success-text)",
+      };
     case "partial":
-      return "border border-amber-200 bg-amber-50 text-amber-700";
+      return {
+        borderColor: "var(--warning-border)",
+        backgroundColor: "var(--warning-bg)",
+        color: "var(--warning-text)",
+      };
     case "overdue":
-      return "border border-rose-200 bg-rose-50 text-rose-700";
+      return {
+        borderColor: "var(--danger-border)",
+        backgroundColor: "var(--danger-bg)",
+        color: "var(--danger-text)",
+      };
     default:
-      return "border border-slate-200 bg-slate-100 text-slate-700";
+      return {
+        borderColor: "var(--border)",
+        backgroundColor: "var(--surface-soft-2)",
+        color: "var(--text-muted)",
+      };
   }
 }
 
@@ -47,20 +63,36 @@ function getPeriodStatusLabel(status: string, isOverdue: boolean) {
   return "Bekliyor";
 }
 
-function getPeriodStatusClass(status: string, isOverdue: boolean) {
+function getPeriodStatusStyle(status: string, isOverdue: boolean) {
   if (isOverdue && status !== "Paid") {
-    return "border border-rose-200 bg-rose-50 text-rose-700";
+    return {
+      borderColor: "var(--danger-border)",
+      backgroundColor: "var(--danger-bg)",
+      color: "var(--danger-text)",
+    };
   }
 
   if (status === "Paid") {
-    return "border border-emerald-200 bg-emerald-50 text-emerald-700";
+    return {
+      borderColor: "var(--success-border)",
+      backgroundColor: "var(--success-bg)",
+      color: "var(--success-text)",
+    };
   }
 
   if (status === "Partial") {
-    return "border border-amber-200 bg-amber-50 text-amber-700";
+    return {
+      borderColor: "var(--warning-border)",
+      backgroundColor: "var(--warning-bg)",
+      color: "var(--warning-text)",
+    };
   }
 
-  return "border border-slate-200 bg-slate-100 text-slate-700";
+  return {
+    borderColor: "var(--border)",
+    backgroundColor: "var(--surface-soft-2)",
+    color: "var(--text-muted)",
+  };
 }
 
 type PaymentMembersSectionProps = {
@@ -135,13 +167,23 @@ export default function PaymentMembersSection({
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="İsim veya mail ile ara"
-            className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none md:w-72"
+            className="w-full rounded-2xl border px-4 py-2.5 text-sm outline-none md:w-72"
+            style={{
+              borderColor: "var(--border)",
+              backgroundColor: "var(--surface-solid)",
+              color: "var(--text)",
+            }}
           />
 
           <select
             value={statusFilter}
             onChange={(e) => onStatusFilterChange(e.target.value as StatusFilter)}
-            className="rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none"
+            className="rounded-2xl border px-4 py-2.5 text-sm outline-none"
+            style={{
+              borderColor: "var(--border)",
+              backgroundColor: "var(--surface-solid)",
+              color: "var(--text)",
+            }}
           >
             <option value="all">Tümü</option>
             <option value="paid">Ödeyenler</option>
@@ -153,11 +195,25 @@ export default function PaymentMembersSection({
       }
     >
       {isLoading ? (
-        <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-10 text-center text-slate-600">
+        <div
+          className="rounded-3xl border border-dashed p-10 text-center"
+          style={{
+            borderColor: "var(--border)",
+            backgroundColor: "var(--surface-soft)",
+            color: "var(--text-muted)",
+          }}
+        >
           Yükleniyor...
         </div>
       ) : filteredMembers.length === 0 ? (
-        <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-10 text-center text-slate-600">
+        <div
+          className="rounded-3xl border border-dashed p-10 text-center"
+          style={{
+            borderColor: "var(--border)",
+            backgroundColor: "var(--surface-soft)",
+            color: "var(--text-muted)",
+          }}
+        >
           Filtreye uygun üye bulunamadı.
         </div>
       ) : (
@@ -169,47 +225,69 @@ export default function PaymentMembersSection({
             return (
               <div
                 key={member.memberId}
-                className="overflow-hidden rounded-[24px] border border-slate-200 bg-slate-50 shadow-sm"
+                className="overflow-hidden rounded-[24px] border shadow-sm"
+                style={{
+                  borderColor: "var(--border)",
+                  backgroundColor: "var(--surface-soft)",
+                }}
               >
                 <button
                   type="button"
                   onClick={() => onToggleMember(member.memberId)}
-                  className="w-full p-4 text-left transition hover:bg-white"
+                  className="w-full p-4 text-left transition hover:brightness-[0.99]"
                 >
                   <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="truncate text-base font-semibold text-slate-900">
+                        <h3
+                          className="truncate text-base font-semibold"
+                          style={{ color: "var(--text)" }}
+                        >
                           {member.displayName}
                         </h3>
 
                         <span
-                          className={`rounded-full px-2.5 py-1 text-xs font-medium ${getStatusBadgeClass(
-                            member.status
-                          )}`}
+                          className="rounded-full border px-2.5 py-1 text-xs font-medium"
+                          style={getStatusBadgeStyle(member.status)}
                         >
                           {getStatusLabel(member.status)}
                         </span>
 
                         {!member.isActive ? (
-                          <span className="rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
+                          <span
+                            className="rounded-full border px-2.5 py-1 text-xs font-medium"
+                            style={{
+                              borderColor: "var(--border)",
+                              backgroundColor: "var(--surface-soft-2)",
+                              color: "var(--text-muted)",
+                            }}
+                          >
                             Pasif Üye
                           </span>
                         ) : null}
                       </div>
 
-                      <p className="mt-1 truncate text-sm text-slate-500">
+                      <p className="mt-1 truncate text-sm" style={{ color: "var(--text-muted)" }}>
                         {member.email}
                       </p>
 
-                      <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
-                        <span className="rounded-full bg-white px-2.5 py-1 shadow-sm">
+                      <div className="mt-3 flex flex-wrap gap-2 text-xs" style={{ color: "var(--text-muted)" }}>
+                        <span
+                          className="rounded-full px-2.5 py-1 shadow-sm"
+                          style={{ backgroundColor: "var(--surface-solid)" }}
+                        >
                           Rol: {member.role}
                         </span>
-                        <span className="rounded-full bg-white px-2.5 py-1 shadow-sm">
+                        <span
+                          className="rounded-full px-2.5 py-1 shadow-sm"
+                          style={{ backgroundColor: "var(--surface-solid)" }}
+                        >
                           Aktif borç dönemi: {member.currentDuePeriodLabel ?? "—"}
                         </span>
-                        <span className="rounded-full bg-white px-2.5 py-1 shadow-sm">
+                        <span
+                          className="rounded-full px-2.5 py-1 shadow-sm"
+                          style={{ backgroundColor: "var(--surface-solid)" }}
+                        >
                           Son ödeme: {formatDate(member.lastPaymentDate)}
                         </span>
                       </div>
@@ -237,19 +315,32 @@ export default function PaymentMembersSection({
                 </button>
 
                 {isExpanded ? (
-                  <div className="border-t border-slate-200 bg-white p-4">
+                  <div
+                    className="border-t p-4"
+                    style={{
+                      borderColor: "var(--border)",
+                      backgroundColor: "var(--surface-solid)",
+                    }}
+                  >
                     <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
                       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                         <label>
-                          <div className="mb-1 text-xs text-slate-500">Yıl filtresi</div>
+                          <div className="mb-1 text-xs" style={{ color: "var(--text-muted)" }}>
+                            Yıl filtresi
+                          </div>
                           <input
                             type="number"
                             value={periodYearFilterByMember[member.memberId] ?? ""}
                             onChange={(e) =>
                               onYearFilterChange(member.memberId, e.target.value)
                             }
-                            className="w-full rounded-2xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none"
+                            className="w-full rounded-2xl border px-3 py-2 text-sm outline-none"
                             placeholder="2026"
+                            style={{
+                              borderColor: "var(--border)",
+                              backgroundColor: "var(--surface-solid)",
+                              color: "var(--text)",
+                            }}
                           />
                         </label>
 
@@ -261,7 +352,7 @@ export default function PaymentMembersSection({
                               onShowOpenOnlyToggle(member.memberId, e.target.checked)
                             }
                           />
-                          <span className="text-sm text-slate-700">
+                          <span className="text-sm" style={{ color: "var(--text)" }}>
                             Sadece açık dönemler
                           </span>
                         </label>
@@ -270,7 +361,12 @@ export default function PaymentMembersSection({
                           <button
                             type="button"
                             onClick={() => onRefreshMemberPeriods(member.memberId)}
-                            className="rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                            className="rounded-2xl border px-4 py-2 text-sm font-medium transition hover:brightness-[0.98]"
+                            style={{
+                              borderColor: "var(--border)",
+                              backgroundColor: "var(--surface-solid)",
+                              color: "var(--text)",
+                            }}
                           >
                             Dönemleri Yenile
                           </button>
@@ -279,7 +375,14 @@ export default function PaymentMembersSection({
                     </div>
 
                     {memberPeriods.length === 0 ? (
-                      <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-500">
+                      <div
+                        className="rounded-2xl border border-dashed p-6 text-center text-sm"
+                        style={{
+                          borderColor: "var(--border)",
+                          backgroundColor: "var(--surface-soft)",
+                          color: "var(--text-muted)",
+                        }}
+                      >
                         Bu filtreye uygun dönem kaydı bulunamadı.
                       </div>
                     ) : (
@@ -294,57 +397,98 @@ export default function PaymentMembersSection({
                           return (
                             <div
                               key={period.id}
-                              className="rounded-[22px] border border-slate-200 bg-slate-50 p-4 shadow-sm"
+                              className="rounded-[22px] border p-4 shadow-sm"
+                              style={{
+                                borderColor: "var(--border)",
+                                backgroundColor: "var(--surface-soft)",
+                              }}
                             >
                               <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
                                 <div className="min-w-0">
                                   <div className="flex flex-wrap items-center gap-2">
-                                    <div className="text-base font-semibold text-slate-900">
+                                    <div
+                                      className="text-base font-semibold"
+                                      style={{ color: "var(--text)" }}
+                                    >
                                       {period.periodLabel}
                                     </div>
 
                                     <span
-                                      className={`rounded-full px-2.5 py-1 text-xs font-medium ${getPeriodStatusClass(
-                                        period.status,
-                                        period.isOverdue
-                                      )}`}
+                                      className="rounded-full border px-2.5 py-1 text-xs font-medium"
+                                      style={getPeriodStatusStyle(period.status, period.isOverdue)}
                                     >
                                       {getPeriodStatusLabel(period.status, period.isOverdue)}
                                     </span>
 
                                     {period.isCurrentPeriod ? (
-                                      <span className="rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-700">
+                                      <span
+                                        className="rounded-full border px-2.5 py-1 text-xs font-medium"
+                                        style={{
+                                          borderColor: "var(--border-strong)",
+                                          backgroundColor: "var(--surface-soft-2)",
+                                          color: "var(--text)",
+                                        }}
+                                      >
                                         Aktif dönem
                                       </span>
                                     ) : null}
 
                                     {revisionNotice ? (
-                                      <span className="rounded-full border border-violet-200 bg-violet-50 px-2.5 py-1 text-xs font-medium text-violet-700">
+                                      <span
+                                        className="rounded-full border px-2.5 py-1 text-xs font-medium"
+                                        style={{
+                                          borderColor: "var(--border)",
+                                          backgroundColor: "var(--surface-solid)",
+                                          color: "var(--text-muted)",
+                                        }}
+                                      >
                                         Revizyon farkı
                                       </span>
                                     ) : null}
                                   </div>
 
-                                  <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
-                                    <span className="rounded-full bg-white px-2.5 py-1 shadow-sm">
+                                  <div className="mt-3 flex flex-wrap gap-2 text-xs" style={{ color: "var(--text-muted)" }}>
+                                    <span
+                                      className="rounded-full px-2.5 py-1 shadow-sm"
+                                      style={{ backgroundColor: "var(--surface-solid)" }}
+                                    >
                                       Beklenen: {formatCurrency(period.expectedAmount, period.currency)}
                                     </span>
-                                    <span className="rounded-full bg-white px-2.5 py-1 shadow-sm">
+                                    <span
+                                      className="rounded-full px-2.5 py-1 shadow-sm"
+                                      style={{ backgroundColor: "var(--surface-solid)" }}
+                                    >
                                       Ödenen: {formatCurrency(period.paidAmount, period.currency)}
                                     </span>
-                                    <span className="rounded-full bg-white px-2.5 py-1 shadow-sm">
+                                    <span
+                                      className="rounded-full px-2.5 py-1 shadow-sm"
+                                      style={{ backgroundColor: "var(--surface-solid)" }}
+                                    >
                                       Kalan: {formatCurrency(period.remainingAmount, period.currency)}
                                     </span>
-                                    <span className="rounded-full bg-white px-2.5 py-1 shadow-sm">
+                                    <span
+                                      className="rounded-full px-2.5 py-1 shadow-sm"
+                                      style={{ backgroundColor: "var(--surface-solid)" }}
+                                    >
                                       Kayıt: {period.paymentCount}
                                     </span>
-                                    <span className="rounded-full bg-white px-2.5 py-1 shadow-sm">
+                                    <span
+                                      className="rounded-full px-2.5 py-1 shadow-sm"
+                                      style={{ backgroundColor: "var(--surface-solid)" }}
+                                    >
                                       Son ödeme: {formatDate(period.lastPaidAtUtc)}
                                     </span>
                                   </div>
 
                                   {revisionNotice ? (
-                                    <div className="mt-3 rounded-2xl border border-violet-200 bg-violet-50 px-3 py-2 text-xs leading-5 text-violet-800">
+                                    <div
+                                      className="mt-3 rounded-2xl border px-3 py-2 text-xs leading-5"
+                                      style={{
+                                        borderColor: "var(--border)",
+                                        backgroundColor: "var(--surface-solid)",
+                                        color: "var(--text-muted)",
+                                      }}
+                                    >
                                       {revisionNotice}
                                     </div>
                                   ) : null}
@@ -361,7 +505,12 @@ export default function PaymentMembersSection({
                                     }
                                     placeholder="Ödeme tutarı"
                                     disabled={period.remainingAmount <= 0}
-                                    className="rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none disabled:opacity-60"
+                                    className="rounded-2xl border px-4 py-2.5 text-sm outline-none disabled:opacity-60"
+                                    style={{
+                                      borderColor: "var(--border)",
+                                      backgroundColor: "var(--surface-solid)",
+                                      color: "var(--text)",
+                                    }}
                                   />
 
                                   <button
@@ -377,7 +526,11 @@ export default function PaymentMembersSection({
                                       payingPeriodId === period.id ||
                                       period.remainingAmount <= 0
                                     }
-                                    className="rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                                    className="rounded-2xl px-4 py-2.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60"
+                                    style={{
+                                      backgroundColor: "var(--primary)",
+                                      color: "var(--primary-contrast)",
+                                    }}
                                   >
                                     {payingPeriodId === period.id
                                       ? "İşleniyor..."
@@ -397,7 +550,12 @@ export default function PaymentMembersSection({
                                         )
                                       }
                                       disabled={cancellingPaymentId === cancelablePayment.paymentId}
-                                      className="rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 md:col-span-2"
+                                      className="rounded-2xl border px-4 py-2.5 text-sm font-medium transition hover:brightness-[0.98] disabled:cursor-not-allowed disabled:opacity-60 md:col-span-2"
+                                      style={{
+                                        borderColor: "var(--border)",
+                                        backgroundColor: "var(--surface-solid)",
+                                        color: "var(--text)",
+                                      }}
                                     >
                                       {cancellingPaymentId === cancelablePayment.paymentId
                                         ? "İşleniyor..."
