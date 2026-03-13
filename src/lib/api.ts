@@ -194,6 +194,7 @@ export type RecentOrganizationMemberPaymentDto = {
   amount: number;
   currency: string;
   paymentMethod: PaymentMethod | string;
+  status: "Completed" | "Cancelled" | string;
   periodYear: number;
   periodMonth?: number | null;
   periodLabel: string;
@@ -720,6 +721,18 @@ export async function getRecentOrganizationPayments(
   return request<RecentOrganizationMemberPaymentDto[]>(
     `/api/organizations/${organizationId}/payments/recent?count=${count}`,
     { method: "GET" },
+    true
+  );
+}
+export async function cancelOrganizationPayment(
+  organizationId: string,
+  paymentId: string
+): Promise<void> {
+  await request<null>(
+    `/api/organizations/${organizationId}/payments/payments/${paymentId}/cancel`,
+    {
+      method: "POST",
+    },
     true
   );
 }

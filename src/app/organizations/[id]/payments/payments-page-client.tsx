@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   addOrganizationPaymentPlanRevision,
+  cancelOrganizationPayment,
   deleteOrganizationPaymentPlan,
   getOrganizationMemberPaymentPeriods,
   getOrganizationMemberPaymentStatuses,
@@ -15,522 +16,42 @@ import {
   type OrganizationMemberPaymentPeriodDto,
   type OrganizationMemberPaymentStatusDto,
   type OrganizationPaymentPlanDto,
-  type OrganizationPaymentPlanRevisionDto,
+  type RecentOrganizationMemberPaymentDto,
   type OrganizationPaymentSettingsDto,
   type PaymentMethod,
-  type RecentOrganizationMemberPaymentDto,
 } from "@/lib/api";
 import { useToast } from "@/components/ToastProvider";
 import ActionConfirmModal from "@/components/ActionConfirmModal";
-
-type PaymentCollectionType = "monthly" | "yearly" | "disabled";
-type MemberPaymentStatus = "paid" | "partial" | "unpaid" | "overdue";
-type StatusFilter = "all" | "paid" | "partial" | "unpaid" | "overdue";
-
-type SettingsFormState = {
-  isEnabled: boolean;
-  period: "Monthly" | "Yearly";
-  startDay: string;
-  startMonth: string;
-  startYear: string;
-};
-
-type PlanFormState = {
-  amount: string;
-  currency: "TRY" | "USD" | "EUR";
-  isActive: boolean;
-};
-
-type RevisionFormState = {
-  effectiveDay: string;
-  effectiveMonth: string;
-  effectiveYear: string;
-  amount: string;
-  currency: "TRY" | "USD" | "EUR";
-  isActive: boolean;
-};
-
-type MemberRow = {
-  memberId: string;
-  displayName: string;
-  email: string;
-  role: string;
-  isActive: boolean;
-  status: MemberPaymentStatus;
-  expectedAmount: number;
-  paidAmount: number;
-  remainingAmount: number;
-  totalOpenDebt: number;
-  lastPaymentDate: string | null;
-  currentDueDate: string | null;
-  currentDuePeriodLabel: string | null;
-  overduePeriods: number;
-  totalPaymentCount: number;
-};
-
-type PaymentPeriodRow = {
-  id: string;
-  periodYear: number;
-  periodMonth: number | null;
-  periodLabel: string;
-  periodStartUtc: string;
-  periodType: string;
-  expectedAmount: number;
-  paidAmount: number;
-  remainingAmount: number;
-  currency: string;
-  status: string;
-  isOverdue: boolean;
-  isCurrentPeriod: boolean;
-  paymentCount: number;
-  lastPaidAtUtc: string | null;
-};
-
-type RecentPaymentItem = {
-  paymentId: string;
-  memberDisplayName: string;
-  memberEmail: string;
-  amount: number;
-  currency: string;
-  periodLabel: string;
-  paidAt: string;
-  markedByDisplayName: string;
-  methodLabel: string;
-};
-
-type PendingPaymentConfirm = {
-  memberId: string;
-  memberDisplayName: string;
-  periodId: string;
-  periodLabel: string;
-  amount: number;
-  currency: string;
-};
-
-type PendingPlanDeleteConfirm = {
-  year: number;
-  period: "Monthly" | "Yearly";
-};
-
-const DAY_OPTIONS = Array.from({ length: 31 }, (_, i) => String(i + 1));
-const MONTH_OPTIONS = Array.from({ length: 12 }, (_, i) => String(i + 1));
-const YEAR_OPTIONS = Array.from({ length: 11 }, (_, i) =>
-  String(new Date().getFullYear() - 2 + i)
-);
-
-function getDefaultYearString() {
-  return String(new Date().getFullYear());
-}
-
-function formatCurrency(amount: number, currency = "TRY") {
-  return new Intl.NumberFormat("tr-TR", {
-    style: "currency",
-    currency,
-    maximumFractionDigits: 2,
-  }).format(amount);
-}
-
-function formatDate(date: string | null) {
-  if (!date) return "—";
-
-  const parsed = new Date(date);
-  if (Number.isNaN(parsed.getTime())) return "—";
-
-  return new Intl.DateTimeFormat("tr-TR", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  }).format(parsed);
-}
-
-function formatMonthYear(date: string | null) {
-  if (!date) return "—";
-
-  const parsed = new Date(date);
-  if (Number.isNaN(parsed.getTime())) return "—";
-
-  return new Intl.DateTimeFormat("tr-TR", {
-    month: "long",
-    year: "numeric",
-  }).format(parsed);
-}
-
-function formatYearOnly(date: string | null) {
-  if (!date) return "—";
-
-  const parsed = new Date(date);
-  if (Number.isNaN(parsed.getTime())) return "—";
-
-  return new Intl.DateTimeFormat("tr-TR", {
-    year: "numeric",
-  }).format(parsed);
-}
-
-function formatRevisionDateLabel(
-  value: string,
-  _period: "Monthly" | "Yearly" | string
-) {
-  if (!value) return "—";
-  return formatDate(value);
-}
-
-function getDateParts(date: string | null | undefined) {
-  if (!date) {
-    return {
-      day: "1",
-      month: "1",
-      year: getDefaultYearString(),
-    };
-  }
-
-  const parsed = new Date(date);
-  if (Number.isNaN(parsed.getTime())) {
-    return {
-      day: "1",
-      month: "1",
-      year: getDefaultYearString(),
-    };
-  }
-
-  return {
-    day: String(parsed.getUTCDate()),
-    month: String(parsed.getUTCMonth() + 1),
-    year: String(parsed.getUTCFullYear()),
-  };
-}
-
-function buildIsoFromDateParts(
-  day: string,
-  month: string,
-  year: string,
-  period: "Monthly" | "Yearly"
-) {
-  if (!year) return null;
-
-  const numericYear = Number(year);
-  if (!Number.isInteger(numericYear)) return null;
-
-  if (period === "Yearly") {
-    return new Date(Date.UTC(numericYear, 0, 1, 12, 0, 0)).toISOString();
-  }
-
-  if (!day || !month) return null;
-
-  const numericDay = Number(day);
-  const numericMonth = Number(month);
-
-  if (!Number.isInteger(numericDay) || !Number.isInteger(numericMonth)) {
-    return null;
-  }
-
-  const constructed = new Date(
-    Date.UTC(numericYear, numericMonth - 1, numericDay, 12, 0, 0)
-  );
-
-  if (Number.isNaN(constructed.getTime())) return null;
-
-  if (
-    constructed.getUTCFullYear() !== numericYear ||
-    constructed.getUTCMonth() !== numericMonth - 1 ||
-    constructed.getUTCDate() !== numericDay
-  ) {
-    return null;
-  }
-
-  return constructed.toISOString();
-}
-
-function buildRevisionIsoFromDateParts(
-  day: string,
-  month: string,
-  year: string,
-  period: "Monthly" | "Yearly"
-) {
-  if (!year) return null;
-
-  const numericYear = Number(year);
-  const numericMonth = Number(month);
-  const numericDay = Number(day);
-
-  if (
-    !Number.isInteger(numericYear) ||
-    !Number.isInteger(numericMonth) ||
-    !Number.isInteger(numericDay)
-  ) {
-    return null;
-  }
-
-  const constructed = new Date(
-    Date.UTC(
-      numericYear,
-      numericMonth - 1,
-      period === "Yearly" ? numericDay : 1,
-      12,
-      0,
-      0
-    )
-  );
-
-  if (Number.isNaN(constructed.getTime())) return null;
-
-  if (period === "Yearly") {
-    if (
-      constructed.getUTCFullYear() !== numericYear ||
-      constructed.getUTCMonth() !== numericMonth - 1 ||
-      constructed.getUTCDate() !== numericDay
-    ) {
-      return null;
-    }
-
-    return constructed.toISOString();
-  }
-
-  if (
-    constructed.getUTCFullYear() !== numericYear ||
-    constructed.getUTCMonth() !== numericMonth - 1
-  ) {
-    return null;
-  }
-
-  return new Date(
-    Date.UTC(numericYear, numericMonth - 1, 1, 12, 0, 0)
-  ).toISOString();
-}
-
-function getCollectionTypeLabel(type: PaymentCollectionType) {
-  switch (type) {
-    case "monthly":
-      return "Aylık";
-    case "yearly":
-      return "Yıllık";
-    default:
-      return "Kapalı";
-  }
-}
-
-function getStatusLabel(status: MemberPaymentStatus) {
-  switch (status) {
-    case "paid":
-      return "Ödendi";
-    case "partial":
-      return "Kısmi";
-    case "overdue":
-      return "Gecikti";
-    default:
-      return "Bekliyor";
-  }
-}
-
-function getStatusBadgeClass(status: MemberPaymentStatus) {
-  switch (status) {
-    case "paid":
-      return "border border-emerald-200 bg-emerald-50 text-emerald-700";
-    case "partial":
-      return "border border-amber-200 bg-amber-50 text-amber-700";
-    case "overdue":
-      return "border border-rose-200 bg-rose-50 text-rose-700";
-    default:
-      return "border border-slate-200 bg-slate-100 text-slate-700";
-  }
-}
-
-function getPeriodStatusLabel(status: string, isOverdue: boolean) {
-  if (isOverdue && status !== "Paid") return "Gecikti";
-  if (status === "Paid") return "Ödendi";
-  if (status === "Partial") return "Kısmi";
-  return "Bekliyor";
-}
-
-function getPeriodStatusClass(status: string, isOverdue: boolean) {
-  if (isOverdue && status !== "Paid") {
-    return "border border-rose-200 bg-rose-50 text-rose-700";
-  }
-
-  if (status === "Paid") {
-    return "border border-emerald-200 bg-emerald-50 text-emerald-700";
-  }
-
-  if (status === "Partial") {
-    return "border border-amber-200 bg-amber-50 text-amber-700";
-  }
-
-  return "border border-slate-200 bg-slate-100 text-slate-700";
-}
-
-function mapCollectionType(
-  settings: OrganizationPaymentSettingsDto | null
-): PaymentCollectionType {
-  if (!settings || !settings.isEnabled) return "disabled";
-  return settings.period === "Yearly" ? "yearly" : "monthly";
-}
-
-function mapRecentPayments(items: RecentOrganizationMemberPaymentDto[]): RecentPaymentItem[] {
-  return items.map((x) => ({
-    paymentId: x.paymentId,
-    memberDisplayName: x.email,
-    memberEmail: x.email,
-    amount: x.amount,
-    currency: x.currency,
-    periodLabel: x.periodLabel,
-    paidAt: x.paidAtUtc,
-    markedByDisplayName: x.markedByEmail,
-    methodLabel: x.paymentMethod,
-  }));
-}
-
-function SectionCard({
-  title,
-  description,
-  children,
-  rightSlot,
-}: {
-  title: string;
-  description?: string;
-  children: ReactNode;
-  rightSlot?: ReactNode;
-}) {
-  return (
-    <div className="rounded-[28px] border border-slate-200 bg-white/95 shadow-sm">
-      <div className="flex flex-col gap-3 border-b border-slate-200 px-5 py-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h2 className="text-base font-semibold text-slate-900">{title}</h2>
-          {description ? (
-            <p className="mt-1 text-sm text-slate-500">{description}</p>
-          ) : null}
-        </div>
-        {rightSlot}
-      </div>
-      <div className="p-4 md:p-5">{children}</div>
-    </div>
-  );
-}
-
-function CompactSummaryItem({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
-      <div className="text-[11px] text-slate-500">{label}</div>
-      <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
-    </div>
-  );
-}
-
-function StatCard({
-  title,
-  value,
-  subtitle,
-  accentClass,
-  onClick,
-  isActive,
-  badge,
-}: {
-  title: string;
-  value: string;
-  subtitle?: string;
-  accentClass?: string;
-  onClick?: () => void;
-  isActive?: boolean;
-  badge?: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`w-full rounded-[24px] border p-4 text-left shadow-sm transition ${
-        onClick ? "hover:-translate-y-0.5 hover:shadow-md" : ""
-      } ${
-        isActive ? "border-slate-400 bg-slate-50" : "border-slate-200 bg-white/90"
-      }`}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className={`mb-4 h-1.5 w-14 rounded-full ${accentClass ?? "bg-slate-900"}`} />
-        {badge ? (
-          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-600">
-            {badge}
-          </span>
-        ) : null}
-      </div>
-
-      <div className="text-sm font-medium text-slate-500">{title}</div>
-      <div className="mt-2 text-[20px] font-semibold tracking-tight text-slate-900">
-        {value}
-      </div>
-      {subtitle ? (
-        <div className="mt-2 text-xs leading-5 text-slate-500">{subtitle}</div>
-      ) : null}
-    </button>
-  );
-}
-
-function DashboardHeroCard({
-  collectionType,
-  activePeriodLabel,
-  totalCollectedAmount,
-  totalExpectedAmount,
-  collectionRate,
-  currency,
-}: {
-  collectionType: PaymentCollectionType;
-  activePeriodLabel: string;
-  totalCollectedAmount: number;
-  totalExpectedAmount: number;
-  collectionRate: number;
-  currency: string;
-}) {
-  return (
-    <div className="overflow-hidden rounded-[28px] border border-slate-200/70 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 p-5 text-white shadow-[0_10px_30px_rgba(15,23,42,0.18)] md:p-6">
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1.35fr_0.85fr]">
-        <div>
-          <div className="inline-flex rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-medium text-slate-100">
-            {getCollectionTypeLabel(collectionType)} aidat sistemi
-          </div>
-
-          <h1 className="mt-3 text-[32px] font-semibold tracking-tight">
-            Aidat ve Ödemeler
-          </h1>
-
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">
-            Üyelerin dönem bazlı borçlarını, tahsilat durumunu, geciken ödemeleri
-            ve son tahsilat hareketlerini tek ekranda yönetin.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 xl:grid-cols-1">
-          <div className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur-sm">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-300">
-              Aktif dönem
-            </div>
-            <div className="mt-1.5 text-[18px] font-semibold">{activePeriodLabel}</div>
-          </div>
-
-          <div className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur-sm">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-300">
-              Tahsil edilen
-            </div>
-            <div className="mt-1.5 text-[18px] font-semibold">
-              {formatCurrency(totalCollectedAmount, currency)}
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur-sm">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-300">
-              Tahsilat oranı
-            </div>
-            <div className="mt-1.5 text-[18px] font-semibold">%{collectionRate.toFixed(0)}</div>
-            <div className="mt-1 text-xs text-slate-300">
-              Beklenen: {formatCurrency(totalExpectedAmount, currency)}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
+import PaymentDashboardHeroCard from "./_payments-components/payment-dashboard-hero-card";
+import PaymentMembersSection from "./_payments-components/payment-members-section";
+import PaymentSidePanels from "./_payments-components/payment-side-panels";
+import PaymentStatCard from "./_payments-components/payment-stat-card";
+import PaymentSettingsPanel from "./_payments-components/payment-settings-panel";
+import {
+  buildIsoFromDateParts,
+  buildRevisionIsoFromDateParts,
+  formatCurrency,
+  formatMonthYear,
+  formatYearOnly,
+  getDateParts,
+  getDefaultYearString,
+  getCollectionTypeLabel,
+  mapCollectionType,
+  mapRecentPayments,
+} from "./_payments-lib/payment-formatters";
+import type {
+  MemberPaymentStatus,
+  MemberRow,
+  PaymentPeriodRow,
+  PendingPaymentCancelConfirm,
+  PendingPaymentConfirm,
+  PendingPlanDeleteConfirm,
+  PlanFormState,
+  RecentPaymentItem,
+  RevisionFormState,
+  SettingsFormState,
+  StatusFilter,
+} from "./_payments-lib/payment-page-types";
 
 export default function OrganizationPaymentsPageClient({
   organizationId,
@@ -560,6 +81,8 @@ export default function OrganizationPaymentsPageClient({
   const [payingPeriodId, setPayingPeriodId] = useState<string | null>(null);
   const [pendingPayment, setPendingPayment] = useState<PendingPaymentConfirm | null>(null);
   const [pendingPlanDelete, setPendingPlanDelete] = useState<PendingPlanDeleteConfirm | null>(null);
+  const [pendingPaymentCancel, setPendingPaymentCancel] =
+    useState<PendingPaymentCancelConfirm | null>(null);
 
   const [settingsForm, setSettingsForm] = useState<SettingsFormState>({
     isEnabled: false,
@@ -592,6 +115,7 @@ export default function OrganizationPaymentsPageClient({
   const [isSavingAll, setIsSavingAll] = useState(false);
   const [deletingPlanYear, setDeletingPlanYear] = useState<number | null>(null);
   const [isAddingRevision, setIsAddingRevision] = useState(false);
+  const [cancellingPaymentId, setCancellingPaymentId] = useState<string | null>(null);
 
   const loadSettingsAndPlans = useCallback(async () => {
     const [settingsResult, plansResult] = await Promise.all([
@@ -1435,6 +959,45 @@ export default function OrganizationPaymentsPageClient({
     }
   }
 
+  function requestCancelPayment(payment: RecentPaymentItem) {
+    if (payment.status === "Cancelled") return;
+
+    setPendingPaymentCancel({
+      paymentId: payment.paymentId,
+      memberDisplayName: payment.memberDisplayName,
+      periodLabel: payment.periodLabel,
+      amount: payment.amount,
+      currency: payment.currency,
+    });
+  }
+
+  async function confirmCancelPayment() {
+    if (!pendingPaymentCancel) return;
+
+    try {
+      setCancellingPaymentId(pendingPaymentCancel.paymentId);
+
+      await cancelOrganizationPayment(organizationId, pendingPaymentCancel.paymentId);
+
+      await Promise.all([loadStatusesOnly(), loadRecentPaymentsOnly()]);
+      await refreshExpandedMemberPeriods();
+
+      showToast({
+        message: `${pendingPaymentCancel.memberDisplayName} için ${pendingPaymentCancel.periodLabel} ödeme kaydı iptal edildi.`,
+        type: "success",
+      });
+
+      setPendingPaymentCancel(null);
+    } catch (error) {
+      showToast({
+        message: error instanceof Error ? error.message : "Ödeme kaydı iptal edilemedi.",
+        type: "error",
+      });
+    } finally {
+      setCancellingPaymentId(null);
+    }
+  }
+
   function openPaymentConfirm(
     member: MemberRow,
     period: PaymentPeriodRow,
@@ -1507,24 +1070,6 @@ export default function OrganizationPaymentsPageClient({
     }
   }
 
-  const planDescription =
-    settingsForm.period === "Yearly"
-      ? "Bu alanda seçilen yıl için yıllık aidat tutarını belirlersin."
-      : "Bu alanda seçilen yıl için aylık aidat tutarını belirlersin.";
-
-  const revisionDescription =
-    settingsForm.period === "Yearly"
-      ? "Yıllık sistemde aynı yıl içinde yeni bir toplam aidat tutarı tanımlarsın. Önceden ödeme yapanlarda fark borç oluşur."
-      : "Aylık sistemde belirli tarihten itibaren yeni dönem tutarı tanımlarsın.";
-
-  const planAmountLabel =
-    settingsForm.period === "Yearly" ? "Yıllık tutar" : "Aylık tutar";
-
-  const startDateLabel =
-    settingsForm.period === "Yearly" ? "Başlangıç yılı" : "Başlangıç tarihi";
-
-  const revisionDateLabel = "Revizyon başlangıç tarihi";
-
   const controlsDisabled = !settingsForm.isEnabled;
 
   return (
@@ -1554,7 +1099,9 @@ export default function OrganizationPaymentsPageClient({
         title="Aidat Planı Silme Onayı"
         description={
           pendingPlanDelete
-            ? `${pendingPlanDelete.year} ${pendingPlanDelete.period === "Yearly" ? "yıllık" : "aylık"} aidat planı silinecek.`
+            ? `${pendingPlanDelete.year} ${
+                pendingPlanDelete.period === "Yearly" ? "yıllık" : "aylık"
+              } aidat planı silinecek.`
             : ""
         }
         warningText="Bu işlem planı ve bu plana bağlı borç üretimini etkiler. Bu yıl için ödeme alınmış planlar zaten silinemez."
@@ -1566,8 +1113,31 @@ export default function OrganizationPaymentsPageClient({
         onConfirm={confirmDeletePlan}
       />
 
+      <ActionConfirmModal
+        open={pendingPaymentCancel != null}
+        title="Ödeme İptal Onayı"
+        description={
+          pendingPaymentCancel
+            ? `${pendingPaymentCancel.memberDisplayName} için ${pendingPaymentCancel.periodLabel} dönemine ait ${formatCurrency(
+                pendingPaymentCancel.amount,
+                pendingPaymentCancel.currency
+              )} ödeme kaydı iptal edilecek.`
+            : ""
+        }
+        warningText="Bu işlem ödeme kaydını silmez, iptal durumuna alır. İlgili dönemin borcu yeniden açılabilir."
+        confirmText="Ödemeyi İptal Et"
+        cancelText="Vazgeç"
+        confirmTone="danger"
+        isSubmitting={
+          pendingPaymentCancel != null &&
+          cancellingPaymentId === pendingPaymentCancel.paymentId
+        }
+        onCancel={() => setPendingPaymentCancel(null)}
+        onConfirm={confirmCancelPayment}
+      />
+
       <div className="space-y-6 rounded-[32px] bg-[#e5e7eb] p-3">
-        <DashboardHeroCard
+        <PaymentDashboardHeroCard
           collectionType={collectionType}
           activePeriodLabel={activePeriodLabel}
           totalCollectedAmount={totalCollectedAmount}
@@ -1583,7 +1153,7 @@ export default function OrganizationPaymentsPageClient({
         ) : null}
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-6">
-          <StatCard
+          <PaymentStatCard
             title="Aidat Sistemi"
             value={getCollectionTypeLabel(collectionType)}
             subtitle={`Aktif dönem: ${activePeriodLabel}`}
@@ -1592,36 +1162,31 @@ export default function OrganizationPaymentsPageClient({
             isActive={isSettingsPanelOpen}
             badge={isSettingsPanelOpen ? "Ayarlar açık" : settings?.isEnabled ? "Açık" : "Kapalı"}
           />
-
-          <StatCard
+          <PaymentStatCard
             title="Ödeme Beklenen Üye"
             value={String(members.length)}
             subtitle={`Hiç ödeme yapmayan: ${neverPaidCount}`}
             accentClass="bg-sky-500"
           />
-
-          <StatCard
+          <PaymentStatCard
             title="Tam Ödeyen"
             value={String(paidCount)}
             subtitle={`Tahsilat oranı: %${collectionRate.toFixed(0)}`}
             accentClass="bg-emerald-500"
           />
-
-          <StatCard
+          <PaymentStatCard
             title="Kısmi Ödeyen"
             value={String(partialCount)}
             subtitle="Bu döneme ait eksik ödeme var"
             accentClass="bg-amber-500"
           />
-
-          <StatCard
+          <PaymentStatCard
             title="Geciken Üye"
             value={String(overdueCount)}
             subtitle="Açık geçmiş dönem borcu bulunuyor"
             accentClass="bg-rose-500"
           />
-
-          <StatCard
+          <PaymentStatCard
             title="Kalan Alacak"
             value={formatCurrency(totalRemainingAmount, activeCurrency)}
             subtitle={`Bekleyen: ${String(unpaidCount)}`}
@@ -1629,929 +1194,77 @@ export default function OrganizationPaymentsPageClient({
           />
         </div>
 
-        {isSettingsPanelOpen ? (
-          <SectionCard
-            title="Aidat Sistemi"
-            description="Aidat tipini seç. Aylıkta tam tarih, yıllıkta sadece yıl esas alınır."
-            rightSlot={
-              <button
-                type="button"
-                onClick={handleSaveAll}
-                disabled={isSavingAll}
-                className="rounded-2xl bg-slate-900 px-5 py-3 text-sm font-medium text-white transition hover:bg-slate-800 disabled:opacity-60"
-              >
-                {isSavingAll ? "Uygulanıyor..." : "Aidat Ayarlarını Uygula"}
-              </button>
-            }
-          >
-            <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
-              <label className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                <div className="text-sm font-medium text-slate-700">Aidat aktif</div>
-                <select
-                  value={settingsForm.isEnabled ? "true" : "false"}
-                  onChange={(e) =>
-                    setSettingsForm((prev) => ({
-                      ...prev,
-                      isEnabled: e.target.value === "true",
-                    }))
-                  }
-                  className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none"
-                >
-                  <option value="true">Açık</option>
-                  <option value="false">Kapalı</option>
-                </select>
-              </label>
-
-              <label
-                className={`rounded-2xl border border-slate-200 bg-slate-50 p-3 ${
-                  controlsDisabled ? "opacity-60" : ""
-                }`}
-              >
-                <div className="text-sm font-medium text-slate-700">Aidat tipi</div>
-                <select
-                  value={settingsForm.period}
-                  onChange={(e) => {
-                    const nextPeriod = e.target.value as "Monthly" | "Yearly";
-
-                    setSettingsForm((prev) => ({
-                      ...prev,
-                      period: nextPeriod,
-                      startDay: "1",
-                      startMonth: "1",
-                    }));
-                  }}
-                  disabled={controlsDisabled}
-                  className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none disabled:bg-slate-100 disabled:text-slate-400"
-                >
-                  <option value="Monthly">Aylık</option>
-                  <option value="Yearly">Yıllık</option>
-                </select>
-              </label>
-
-              <div
-                className={`rounded-2xl border border-slate-200 bg-slate-50 p-3 ${
-                  controlsDisabled ? "opacity-60" : ""
-                }`}
-              >
-                <div className="text-sm font-medium text-slate-700">{startDateLabel}</div>
-
-                <div className="mt-2 grid grid-cols-3 gap-2">
-                  <select
-                    value={settingsForm.startDay}
-                    onChange={(e) =>
-                      setSettingsForm((prev) => ({
-                        ...prev,
-                        startDay: e.target.value,
-                      }))
-                    }
-                    disabled={controlsDisabled}
-                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none disabled:bg-slate-100 disabled:text-slate-400"
-                  >
-                    {DAY_OPTIONS.map((day) => (
-                      <option key={day} value={day}>
-                        {day}
-                      </option>
-                    ))}
-                  </select>
-
-                  <select
-                    value={settingsForm.startMonth}
-                    onChange={(e) =>
-                      setSettingsForm((prev) => ({
-                        ...prev,
-                        startMonth: e.target.value,
-                      }))
-                    }
-                    disabled={controlsDisabled}
-                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none disabled:bg-slate-100 disabled:text-slate-400"
-                  >
-                    {MONTH_OPTIONS.map((month) => (
-                      <option key={month} value={month}>
-                        {month}
-                      </option>
-                    ))}
-                  </select>
-
-                  <select
-                    value={settingsForm.startYear}
-                    onChange={(e) =>
-                      setSettingsForm((prev) => ({
-                        ...prev,
-                        startYear: e.target.value,
-                      }))
-                    }
-                    disabled={controlsDisabled}
-                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none disabled:bg-slate-100 disabled:text-slate-400"
-                  >
-                    {YEAR_OPTIONS.map((year) => (
-                      <option key={year} value={year}>
-                        {year}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <p className="mt-2 text-xs text-slate-500">
-                  {settingsForm.period === "Yearly"
-                    ? "Yıllık sistemde yalnızca başlangıç yılı esas alınır."
-                    : "Borç üretimi bu tarihten itibaren başlar."}
-                </p>
-              </div>
-            </div>
-
-            <div
-              className={`mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3 ${
-                controlsDisabled ? "opacity-60" : ""
-              }`}
-            >
-              <div className="mb-3">
-                <div className="text-sm font-semibold text-slate-900">Aidat Planı</div>
-                <div className="mt-1 space-y-2">
-                  <p className="text-sm text-slate-500">{planDescription}</p>
-                  <p className="text-xs text-amber-700">
-                    Not: Bu yıl için ödeme alınmışsa plan silinemez.
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_0.9fr]">
-                <label className="rounded-2xl border border-slate-200 bg-white p-3">
-                  <div className="text-sm font-medium text-slate-700">{planAmountLabel}</div>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={planForm.amount}
-                    onChange={(e) =>
-                      setPlanForm((prev) => ({ ...prev, amount: e.target.value }))
-                    }
-                    disabled={controlsDisabled}
-                    className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none disabled:bg-slate-100 disabled:text-slate-400"
-                    placeholder="Tutar gir"
-                  />
-                </label>
-
-                <label className="rounded-2xl border border-slate-200 bg-white p-3">
-                  <div className="text-sm font-medium text-slate-700">Para birimi</div>
-                  <select
-                    value={planForm.currency}
-                    onChange={(e) =>
-                      setPlanForm((prev) => ({
-                        ...prev,
-                        currency: e.target.value as "TRY" | "USD" | "EUR",
-                      }))
-                    }
-                    disabled={controlsDisabled}
-                    className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none disabled:bg-slate-100 disabled:text-slate-400"
-                  >
-                    <option value="TRY">TRY</option>
-                    <option value="USD">USD</option>
-                    <option value="EUR">EUR</option>
-                  </select>
-                </label>
-              </div>
-
-              <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-slate-500">
-                <span className="rounded-full bg-white px-3 py-1.5 shadow-sm">
-                  Plan yılı: {settingsForm.startYear || "—"}
-                </span>
-                <span className="rounded-full bg-white px-3 py-1.5 shadow-sm">
-                  Tip: {settingsForm.period === "Yearly" ? "Yıllık" : "Aylık"}
-                </span>
-              </div>
-
-              <div className="mt-4 overflow-x-auto">
-                <table className="min-w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-200 text-left text-slate-500">
-                      <th className="px-3 py-3">Yıl</th>
-                      <th className="px-3 py-3">Tip</th>
-                      <th className="px-3 py-3">Tutar</th>
-                      <th className="px-3 py-3">Durum</th>
-                      <th className="px-3 py-3">Revizyon</th>
-                      <th className="px-3 py-3">Güncellendi</th>
-                      <th className="px-3 py-3 text-right">İşlem</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {compatiblePlans.length === 0 ? (
-                      <tr>
-                        <td colSpan={7} className="px-3 py-6 text-center text-slate-500">
-                          Bu aidat tipine uygun plan henüz tanımlanmadı.
-                        </td>
-                      </tr>
-                    ) : (
-                      compatiblePlans.map((plan) => (
-                        <tr
-                          key={plan.id}
-                          className={`border-b border-slate-100 text-slate-700 ${
-                            selectedPlanYear === plan.year ? "bg-slate-50" : ""
-                          }`}
-                        >
-                          <td className="px-3 py-3 font-medium">{plan.year}</td>
-                          <td className="px-3 py-3">
-                            {plan.period === "Yearly" ? "Yıllık" : "Aylık"}
-                          </td>
-                          <td className="px-3 py-3">
-                            {formatCurrency(plan.amount, plan.currency)}
-                          </td>
-                          <td className="px-3 py-3">{plan.isActive ? "Aktif" : "Pasif"}</td>
-                          <td className="px-3 py-3">
-                            {plan.revisions?.length ? `${plan.revisions.length} kayıt` : "—"}
-                          </td>
-                          <td className="px-3 py-3">{formatDate(plan.updatedAtUtc)}</td>
-                          <td className="px-3 py-3 text-right">
-                            <button
-                              type="button"
-                              onClick={() => requestDeletePlan(plan)}
-                              disabled={deletingPlanYear === plan.year}
-                              className="rounded-2xl border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-                            >
-                              {deletingPlanYear === plan.year ? "Siliniyor..." : "Planı sil"}
-                            </button>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3">
-                <div>
-                  <div className="text-sm font-medium text-slate-900">Plan revizyonları</div>
-                  <div className="text-xs text-slate-500">
-                    İhtiyaç halinde açıp yeni revizyon ekleyebilirsin.
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setIsRevisionPanelOpen((prev) => !prev)}
-                  disabled={controlsDisabled}
-                  className="rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
-                >
-                  {isRevisionPanelOpen ? "Revizyon alanını kapat" : "Revizyon alanını aç"}
-                </button>
-              </div>
-            </div>
-
-            {isRevisionPanelOpen ? (
-              <div
-                className={`mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3 ${
-                  controlsDisabled ? "opacity-60" : ""
-                }`}
-              >
-                <div className="mb-3">
-                  <div className="text-sm font-semibold text-slate-900">Plan Revizyonu</div>
-                  <p className="mt-1 text-sm text-slate-500">{revisionDescription}</p>
-                </div>
-
-                <div className="grid grid-cols-1 gap-3 xl:grid-cols-[1.1fr_1fr_0.8fr_auto]">
-                  <div className="rounded-2xl border border-slate-200 bg-white p-3">
-                    <div className="text-sm font-medium text-slate-700">{revisionDateLabel}</div>
-
-                    <div className="mt-2 grid grid-cols-3 gap-2">
-                      <select
-                        value={revisionForm.effectiveDay}
-                        onChange={(e) =>
-                          setRevisionForm((prev) => ({
-                            ...prev,
-                            effectiveDay: e.target.value,
-                          }))
-                        }
-                        disabled={controlsDisabled}
-                        className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none disabled:bg-slate-100 disabled:text-slate-400"
-                      >
-                        {DAY_OPTIONS.map((day) => (
-                          <option key={day} value={day}>
-                            {day}
-                          </option>
-                        ))}
-                      </select>
-
-                      <select
-                        value={revisionForm.effectiveMonth}
-                        onChange={(e) =>
-                          setRevisionForm((prev) => ({
-                            ...prev,
-                            effectiveMonth: e.target.value,
-                          }))
-                        }
-                        disabled={controlsDisabled}
-                        className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none disabled:bg-slate-100 disabled:text-slate-400"
-                      >
-                        {MONTH_OPTIONS.map((month) => (
-                          <option key={month} value={month}>
-                            {month}
-                          </option>
-                        ))}
-                      </select>
-
-                      <select
-                        value={revisionForm.effectiveYear}
-                        onChange={(e) =>
-                          setRevisionForm((prev) => ({
-                            ...prev,
-                            effectiveYear: e.target.value,
-                          }))
-                        }
-                        disabled={controlsDisabled}
-                        className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none disabled:bg-slate-100 disabled:text-slate-400"
-                      >
-                        {YEAR_OPTIONS.map((year) => (
-                          <option key={year} value={year}>
-                            {year}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  <label className="rounded-2xl border border-slate-200 bg-white p-3">
-                    <div className="text-sm font-medium text-slate-700">
-                      {settingsForm.period === "Yearly" ? "Yeni yıllık tutar" : "Yeni dönem tutarı"}
-                    </div>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={revisionForm.amount}
-                      onChange={(e) =>
-                        setRevisionForm((prev) => ({ ...prev, amount: e.target.value }))
-                      }
-                      disabled={controlsDisabled}
-                      className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none disabled:bg-slate-100 disabled:text-slate-400"
-                      placeholder="Tutar gir"
-                    />
-                  </label>
-
-                  <label className="rounded-2xl border border-slate-200 bg-white p-3">
-                    <div className="text-sm font-medium text-slate-700">Para birimi</div>
-                    <select
-                      value={revisionForm.currency}
-                      onChange={(e) =>
-                        setRevisionForm((prev) => ({
-                          ...prev,
-                          currency: e.target.value as "TRY" | "USD" | "EUR",
-                        }))
-                      }
-                      disabled={controlsDisabled}
-                      className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none disabled:bg-slate-100 disabled:text-slate-400"
-                    >
-                      <option value="TRY">TRY</option>
-                      <option value="USD">USD</option>
-                      <option value="EUR">EUR</option>
-                    </select>
-                  </label>
-
-                  <div className="flex items-end">
-                    <button
-                      type="button"
-                      onClick={handleAddRevision}
-                      disabled={controlsDisabled || isAddingRevision}
-                      className="w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-medium text-white transition hover:bg-slate-800 disabled:opacity-60"
-                    >
-                      {isAddingRevision ? "Ekleniyor..." : "Revizyon Ekle"}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="mt-4">
-                  <div className="mb-2 text-sm font-medium text-slate-700">
-                    Seçili planın revizyon geçmişi
-                  </div>
-
-                  {!selectedPlan || !selectedPlan.revisions?.length ? (
-                    <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-4 text-sm text-slate-500">
-                      Seçili plan için revizyon kaydı bulunmuyor.
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {[...selectedPlan.revisions]
-                        .sort((a, b) => a.revisionNo - b.revisionNo)
-                        .map((revision: OrganizationPaymentPlanRevisionDto) => (
-                          <div
-                            key={revision.id}
-                            className="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-white p-3 md:flex-row md:items-center md:justify-between"
-                          >
-                            <div className="min-w-0">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span className="rounded-full bg-slate-900 px-2.5 py-1 text-xs font-medium text-white">
-                                  Revizyon #{revision.revisionNo}
-                                </span>
-                                <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs text-slate-600">
-                                  Başlangıç: {formatRevisionDateLabel(revision.effectiveFromUtc, revision.period)}
-                                </span>
-                                <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs text-slate-600">
-                                  {revision.isActive ? "Aktif" : "Pasif"}
-                                </span>
-                              </div>
-
-                              <div className="mt-2 text-sm text-slate-600">
-                                Tutar:{" "}
-                                <span className="font-semibold text-slate-900">
-                                  {formatCurrency(revision.amount, revision.currency)}
-                                </span>
-                              </div>
-                            </div>
-
-                            <div className="text-xs text-slate-500">
-                              Güncelleme: {formatDate(revision.updatedAtUtc)}
-                            </div>
-                          </div>
-                        ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            ) : null}
-          </SectionCard>
-        ) : null}
+        <PaymentSettingsPanel
+          isOpen={isSettingsPanelOpen}
+          isSavingAll={isSavingAll}
+          isAddingRevision={isAddingRevision}
+          controlsDisabled={controlsDisabled}
+          settingsForm={settingsForm}
+          planForm={planForm}
+          revisionForm={revisionForm}
+          compatiblePlans={compatiblePlans}
+          selectedPlanYear={selectedPlanYear}
+          selectedPlan={selectedPlan}
+          deletingPlanYear={deletingPlanYear}
+          isRevisionPanelOpen={isRevisionPanelOpen}
+          onToggleOpen={() => setIsSettingsPanelOpen((prev) => !prev)}
+          onSaveAll={handleSaveAll}
+          onSettingsFormChange={setSettingsForm}
+          onPlanFormChange={setPlanForm}
+          onRevisionFormChange={setRevisionForm}
+          onToggleRevisionPanel={() => setIsRevisionPanelOpen((prev) => !prev)}
+          onAddRevision={handleAddRevision}
+          onDeletePlan={requestDeletePlan}
+        />
 
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
           <div className="space-y-6 xl:col-span-2">
-            <SectionCard
-              title="Üye Ödeme Durumları"
-              description="Kartı açınca üyeye ait tüm borç dönemlerini görür, filtreler ve istediğin döneme ödeme işlersin."
-              rightSlot={
-                <div className="flex flex-col gap-2 md:flex-row">
-                  <input
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="İsim veya mail ile ara"
-                    className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none md:w-72"
-                  />
-
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-                    className="rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none"
-                  >
-                    <option value="all">Tümü</option>
-                    <option value="paid">Ödeyenler</option>
-                    <option value="partial">Kısmi Ödeyenler</option>
-                    <option value="unpaid">Bekleyenler</option>
-                    <option value="overdue">Gecikenler</option>
-                  </select>
-                </div>
+            <PaymentMembersSection
+              isLoading={isLoading}
+              filteredMembers={filteredMembers}
+              search={search}
+              statusFilter={statusFilter}
+              activeCurrency={activeCurrency}
+              expandedMemberIds={expandedMemberIds}
+              periodsByMember={periodsByMember}
+              periodYearFilterByMember={periodYearFilterByMember}
+              showOpenOnlyByMember={showOpenOnlyByMember}
+              paymentAmountByPeriod={paymentAmountByPeriod}
+              payingPeriodId={payingPeriodId}
+              onSearchChange={setSearch}
+              onStatusFilterChange={setStatusFilter}
+              onToggleMember={toggleMember}
+              onYearFilterChange={handleYearFilterChange}
+              onShowOpenOnlyToggle={handleShowOpenOnlyToggle}
+              onRefreshMemberPeriods={handleRefreshMemberPeriods}
+              onPaymentAmountChange={(periodId, value) =>
+                setPaymentAmountByPeriod((prev) => ({
+                  ...prev,
+                  [periodId]: value,
+                }))
               }
-            >
-              {isLoading ? (
-                <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-10 text-center text-slate-600">
-                  Yükleniyor...
-                </div>
-              ) : filteredMembers.length === 0 ? (
-                <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-10 text-center text-slate-600">
-                  Filtreye uygun üye bulunamadı.
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {filteredMembers.map((member) => {
-                    const isExpanded = expandedMemberIds.includes(member.memberId);
-                    const memberPeriods = periodsByMember[member.memberId] ?? [];
-
-                    return (
-                      <div
-                        key={member.memberId}
-                        className="overflow-hidden rounded-[24px] border border-slate-200 bg-slate-50 shadow-sm"
-                      >
-                        <button
-                          type="button"
-                          onClick={() => toggleMember(member.memberId)}
-                          className="w-full p-4 text-left transition hover:bg-white"
-                        >
-                          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-                            <div className="min-w-0">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <h3 className="truncate text-base font-semibold text-slate-900">
-                                  {member.displayName}
-                                </h3>
-
-                                <span
-                                  className={`rounded-full px-2.5 py-1 text-xs font-medium ${getStatusBadgeClass(
-                                    member.status
-                                  )}`}
-                                >
-                                  {getStatusLabel(member.status)}
-                                </span>
-
-                                {!member.isActive ? (
-                                  <span className="rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
-                                    Pasif Üye
-                                  </span>
-                                ) : null}
-                              </div>
-
-                              <p className="mt-1 truncate text-sm text-slate-500">
-                                {member.email}
-                              </p>
-
-                              <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
-                                <span className="rounded-full bg-white px-2.5 py-1 shadow-sm">
-                                  Rol: {member.role}
-                                </span>
-                                <span className="rounded-full bg-white px-2.5 py-1 shadow-sm">
-                                  Aktif borç dönemi: {member.currentDuePeriodLabel ?? "—"}
-                                </span>
-                                <span className="rounded-full bg-white px-2.5 py-1 shadow-sm">
-                                  Son ödeme: {formatDate(member.lastPaymentDate)}
-                                </span>
-                              </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:min-w-[520px]">
-                              <CompactSummaryItem
-                                label="Beklenen"
-                                value={formatCurrency(member.expectedAmount, activeCurrency)}
-                              />
-                              <CompactSummaryItem
-                                label="Bu dönem ödenen"
-                                value={formatCurrency(member.paidAmount, activeCurrency)}
-                              />
-                              <CompactSummaryItem
-                                label="Toplam açık borç"
-                                value={formatCurrency(member.totalOpenDebt, activeCurrency)}
-                              />
-                              <CompactSummaryItem
-                                label="Durum"
-                                value={getStatusLabel(member.status)}
-                              />
-                            </div>
-                          </div>
-                        </button>
-
-                        {isExpanded ? (
-                          <div className="border-t border-slate-200 bg-white p-4">
-                            <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-                              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                                <label>
-                                  <div className="mb-1 text-xs text-slate-500">Yıl filtresi</div>
-                                  <input
-                                    type="number"
-                                    value={periodYearFilterByMember[member.memberId] ?? ""}
-                                    onChange={(e) =>
-                                      handleYearFilterChange(member.memberId, e.target.value)
-                                    }
-                                    className="w-full rounded-2xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none"
-                                    placeholder="2026"
-                                  />
-                                </label>
-
-                                <label className="flex items-center gap-2 pt-6">
-                                  <input
-                                    type="checkbox"
-                                    checked={showOpenOnlyByMember[member.memberId] ?? true}
-                                    onChange={(e) =>
-                                      handleShowOpenOnlyToggle(member.memberId, e.target.checked)
-                                    }
-                                  />
-                                  <span className="text-sm text-slate-700">
-                                    Sadece açık dönemler
-                                  </span>
-                                </label>
-
-                                <div className="pt-5">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleRefreshMemberPeriods(member.memberId)}
-                                    className="rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                                  >
-                                    Dönemleri Yenile
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-
-                            {memberPeriods.length === 0 ? (
-                              <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-500">
-                                Bu filtreye uygun dönem kaydı bulunamadı.
-                              </div>
-                            ) : (
-                              <div className="space-y-3">
-                                {memberPeriods.map((period) => {
-                                  const revisionNotice = getRevisionNotice(period);
-
-                                  return (
-                                    <div
-                                      key={period.id}
-                                      className="rounded-[22px] border border-slate-200 bg-slate-50 p-4 shadow-sm"
-                                    >
-                                      <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-                                        <div className="min-w-0">
-                                          <div className="flex flex-wrap items-center gap-2">
-                                            <div className="text-base font-semibold text-slate-900">
-                                              {period.periodLabel}
-                                            </div>
-
-                                            <span
-                                              className={`rounded-full px-2.5 py-1 text-xs font-medium ${getPeriodStatusClass(
-                                                period.status,
-                                                period.isOverdue
-                                              )}`}
-                                            >
-                                              {getPeriodStatusLabel(period.status, period.isOverdue)}
-                                            </span>
-
-                                            {period.isCurrentPeriod ? (
-                                              <span className="rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-700">
-                                                Aktif dönem
-                                              </span>
-                                            ) : null}
-
-                                            {revisionNotice ? (
-                                              <span className="rounded-full border border-violet-200 bg-violet-50 px-2.5 py-1 text-xs font-medium text-violet-700">
-                                                Revizyon farkı
-                                              </span>
-                                            ) : null}
-                                          </div>
-
-                                          <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
-                                            <span className="rounded-full bg-white px-2.5 py-1 shadow-sm">
-                                              Beklenen: {formatCurrency(period.expectedAmount, period.currency)}
-                                            </span>
-                                            <span className="rounded-full bg-white px-2.5 py-1 shadow-sm">
-                                              Ödenen: {formatCurrency(period.paidAmount, period.currency)}
-                                            </span>
-                                            <span className="rounded-full bg-white px-2.5 py-1 shadow-sm">
-                                              Kalan: {formatCurrency(period.remainingAmount, period.currency)}
-                                            </span>
-                                            <span className="rounded-full bg-white px-2.5 py-1 shadow-sm">
-                                              Kayıt: {period.paymentCount}
-                                            </span>
-                                            <span className="rounded-full bg-white px-2.5 py-1 shadow-sm">
-                                              Son ödeme: {formatDate(period.lastPaidAtUtc)}
-                                            </span>
-                                          </div>
-
-                                          {revisionNotice ? (
-                                            <div className="mt-3 rounded-2xl border border-violet-200 bg-violet-50 px-3 py-2 text-xs leading-5 text-violet-800">
-                                              {revisionNotice}
-                                            </div>
-                                          ) : null}
-                                        </div>
-
-                                        <div className="grid grid-cols-1 gap-2 md:grid-cols-[180px_auto]">
-                                          <input
-                                            type="number"
-                                            min="0"
-                                            step="0.01"
-                                            value={paymentAmountByPeriod[period.id] ?? ""}
-                                            onChange={(e) =>
-                                              setPaymentAmountByPeriod((prev) => ({
-                                                ...prev,
-                                                [period.id]: e.target.value,
-                                              }))
-                                            }
-                                            placeholder="Ödeme tutarı"
-                                            disabled={period.remainingAmount <= 0}
-                                            className="rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none disabled:opacity-60"
-                                          />
-
-                                          <button
-                                            type="button"
-                                            onClick={() =>
-                                              openPaymentConfirm(
-                                                member,
-                                                period,
-                                                paymentAmountByPeriod[period.id] ?? ""
-                                              )
-                                            }
-                                            disabled={
-                                              payingPeriodId === period.id ||
-                                              period.remainingAmount <= 0
-                                            }
-                                            className="rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-                                          >
-                                            {payingPeriodId === period.id
-                                              ? "İşleniyor..."
-                                              : period.remainingAmount <= 0
-                                              ? "Tamamlandı"
-                                              : "Bu Döneme Ödeme Al"}
-                                          </button>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </div>
-                        ) : null}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </SectionCard>
+              onOpenPaymentConfirm={openPaymentConfirm}
+              getRevisionNotice={getRevisionNotice}
+            />
           </div>
 
-          <div className="space-y-6">
-            <SectionCard
-              title="Son Tahsilatlar"
-              description="Liste büyürse bölüm içinde scroll olur."
-              rightSlot={
-                <input
-                  value={recentSearch}
-                  onChange={(e) => setRecentSearch(e.target.value)}
-                  placeholder="İsim veya mail ile ara"
-                  className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none md:w-72"
-                />
-              }
-            >
-              <div className="max-h-[420px] overflow-y-auto pr-1">
-                {filteredRecentPayments.length === 0 ? (
-                  <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
-                    <div className="text-sm font-medium text-slate-700">
-                      Henüz tahsilat kaydı yok
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {filteredRecentPayments.map((payment) => (
-                      <div
-                        key={payment.paymentId}
-                        className="rounded-[22px] border border-slate-200 bg-slate-50 p-3 shadow-sm"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <div className="truncate text-sm font-semibold text-slate-900">
-                              {payment.memberDisplayName}
-                            </div>
-                            <div className="truncate text-xs text-slate-500">
-                              {payment.memberEmail}
-                            </div>
-                          </div>
-
-                          <div className="rounded-2xl bg-white px-3 py-1.5 text-sm font-semibold text-slate-900 shadow-sm">
-                            {formatCurrency(payment.amount, payment.currency)}
-                          </div>
-                        </div>
-
-                        <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-500">
-                          <span className="rounded-full bg-white px-2.5 py-1 shadow-sm">
-                            {payment.periodLabel}
-                          </span>
-                          <span className="rounded-full bg-white px-2.5 py-1 shadow-sm">
-                            {payment.methodLabel}
-                          </span>
-                        </div>
-
-                        <div className="mt-2 space-y-1 text-xs text-slate-500">
-                          <div>Ödeme tarihi: {formatDate(payment.paidAt)}</div>
-                          <div>İşaretleyen: {payment.markedByDisplayName}</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </SectionCard>
-
-            <SectionCard
-              title="En Yüksek Kalan Borç"
-              description="Üye bazlı toplam açık borç listesi."
-              rightSlot={
-                <input
-                  value={topDebtorsSearch}
-                  onChange={(e) => setTopDebtorsSearch(e.target.value)}
-                  placeholder="İsim veya mail ile ara"
-                  className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none md:w-72"
-                />
-              }
-            >
-              <div className="max-h-[320px] overflow-y-auto pr-1">
-                <div className="space-y-3">
-                  {filteredTopDebtors.length === 0 ? (
-                    <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-500">
-                      Filtreye uygun kayıt yok.
-                    </div>
-                  ) : (
-                    filteredTopDebtors.map((member, index) => (
-                      <div
-                        key={member.memberId}
-                        className="flex items-center justify-between gap-3 rounded-[22px] border border-slate-200 bg-slate-50 p-3"
-                      >
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white">
-                              {index + 1}
-                            </span>
-                            <div className="truncate text-sm font-medium text-slate-900">
-                              {member.displayName}
-                            </div>
-                          </div>
-                          <div className="mt-1 truncate text-xs text-slate-500">
-                            {member.email}
-                          </div>
-                        </div>
-
-                        <div className="text-right text-sm font-semibold text-slate-900">
-                          {formatCurrency(member.totalOpenDebt, activeCurrency)}
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            </SectionCard>
-
-            <SectionCard
-              title="Düzenli Ödeyenler"
-              description="Son ödeme kayıt sayısına göre sıralanır."
-              rightSlot={
-                <input
-                  value={regularPayersSearch}
-                  onChange={(e) => setRegularPayersSearch(e.target.value)}
-                  placeholder="İsim veya mail ile ara"
-                  className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none md:w-72"
-                />
-              }
-            >
-              <div className="max-h-[280px] overflow-y-auto pr-1">
-                <div className="space-y-3">
-                  {filteredRegularPayers.length === 0 ? (
-                    <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-500">
-                      Filtreye uygun kayıt yok.
-                    </div>
-                  ) : (
-                    filteredRegularPayers.map((member, index) => (
-                      <div
-                        key={member.memberId}
-                        className="flex items-center justify-between gap-3 rounded-[22px] border border-slate-200 bg-slate-50 p-3"
-                      >
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-emerald-600 text-xs font-semibold text-white">
-                              {index + 1}
-                            </span>
-                            <div className="truncate text-sm font-medium text-slate-900">
-                              {member.displayName}
-                            </div>
-                          </div>
-                          <div className="mt-1 text-xs text-slate-500">
-                            Son ödeme: {formatDate(member.lastPaymentDate)}
-                          </div>
-                        </div>
-
-                        <div className="text-right text-xs text-slate-500">
-                          Ödeme kaydı: {member.totalPaymentCount}
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            </SectionCard>
-
-            <SectionCard
-              title="Hiç Ödeme Yapmayanlar"
-              description="İlk tahsilatı bekleyen üyeler."
-              rightSlot={
-                <input
-                  value={neverPaidSearch}
-                  onChange={(e) => setNeverPaidSearch(e.target.value)}
-                  placeholder="İsim veya mail ile ara"
-                  className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none md:w-72"
-                />
-              }
-            >
-              <div className="max-h-[280px] overflow-y-auto pr-1">
-                <div className="space-y-3">
-                  {filteredNeverPaidMembers.length === 0 ? (
-                    <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-500">
-                      Filtreye uygun kayıt yok.
-                    </div>
-                  ) : (
-                    filteredNeverPaidMembers.map((member, index) => (
-                      <div
-                        key={member.memberId}
-                        className="flex items-center justify-between gap-3 rounded-[22px] border border-slate-200 bg-slate-50 p-3"
-                      >
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-rose-600 text-xs font-semibold text-white">
-                              {index + 1}
-                            </span>
-                            <div className="truncate text-sm font-medium text-slate-900">
-                              {member.displayName}
-                            </div>
-                          </div>
-                          <div className="mt-1 truncate text-xs text-slate-500">
-                            {member.email}
-                          </div>
-                        </div>
-
-                        <div className="text-right text-xs text-slate-500">
-                          Durum: {getStatusLabel(member.status)}
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            </SectionCard>
-          </div>
+          <PaymentSidePanels
+            filteredRecentPayments={filteredRecentPayments}
+            filteredTopDebtors={filteredTopDebtors}
+            filteredRegularPayers={filteredRegularPayers}
+            filteredNeverPaidMembers={filteredNeverPaidMembers}
+            recentSearch={recentSearch}
+            topDebtorsSearch={topDebtorsSearch}
+            regularPayersSearch={regularPayersSearch}
+            neverPaidSearch={neverPaidSearch}
+            activeCurrency={activeCurrency}
+            cancellingPaymentId={cancellingPaymentId}
+            onRecentSearchChange={setRecentSearch}
+            onTopDebtorsSearchChange={setTopDebtorsSearch}
+            onRegularPayersSearchChange={setRegularPayersSearch}
+            onNeverPaidSearchChange={setNeverPaidSearch}
+            onRequestCancelPayment={requestCancelPayment}
+          />
         </div>
 
         <div className="hidden">{organizationId}</div>
