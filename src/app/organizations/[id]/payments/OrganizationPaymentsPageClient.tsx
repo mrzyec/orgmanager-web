@@ -218,6 +218,8 @@ export default function OrganizationPaymentsPageClient({
           memberCount={vm.members.length}
           paidCount={vm.paidCount}
           overdueCount={vm.overdueCount}
+          organizationOverviewHref={`/organizations/${organizationId}`}
+          paymentHistoryHref={`/organizations/${organizationId}/payments/history`}
         />
 
         {vm.pageError ? (

@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 type PaymentCollectionType = "monthly" | "yearly" | "disabled";
 
 function getCollectionTypeLabel(type: PaymentCollectionType) {
@@ -32,6 +34,8 @@ type PaymentDashboardHeroCardProps = {
   memberCount: number;
   paidCount: number;
   overdueCount: number;
+  organizationOverviewHref: string;
+  paymentHistoryHref: string;
 };
 
 export default function PaymentDashboardHeroCard({
@@ -45,8 +49,20 @@ export default function PaymentDashboardHeroCard({
   memberCount,
   paidCount,
   overdueCount,
+  organizationOverviewHref,
+  paymentHistoryHref,
 }: PaymentDashboardHeroCardProps) {
-  const normalizedRate = Math.max(0, Math.min(100, collectionRate));
+  const safeCollectionRate = Number.isFinite(collectionRate)
+    ? Math.max(0, Math.min(100, collectionRate))
+    : 0;
+
+  const safeRemainingAmount = Number.isFinite(totalRemainingAmount)
+    ? totalRemainingAmount
+    : 0;
+
+  const safeExpectedAmount = Number.isFinite(totalExpectedAmount)
+    ? totalExpectedAmount
+    : 0;
 
   return (
     <div
@@ -54,11 +70,11 @@ export default function PaymentDashboardHeroCard({
       style={{
         borderColor: "var(--border)",
         background:
-          "linear-gradient(120deg, var(--primary) 0%, var(--primary-hover) 55%, #334155 100%)",
+          "linear-gradient(to right, var(--primary), var(--primary-hover), var(--primary))",
         color: "var(--text-on-dark)",
       }}
     >
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1.2fr_0.8fr]">
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1.35fr_0.85fr]">
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <div
@@ -71,31 +87,52 @@ export default function PaymentDashboardHeroCard({
             >
               {getCollectionTypeLabel(collectionType)} aidat sistemi
             </div>
-
-            <div
-              className="h-2 w-6 rounded-full"
-              style={{ backgroundColor: "rgba(255,255,255,0.14)" }}
-            />
           </div>
 
-          <h1 className="mt-4 text-[34px] font-semibold tracking-tight">
+          <h1 className="mt-4 text-[32px] font-semibold tracking-tight">
             Aidat ve Ödemeler
           </h1>
 
           <p
-            className="mt-3 max-w-2xl text-sm leading-7"
+            className="mt-3 max-w-2xl text-sm leading-8"
             style={{ color: "var(--text-on-dark-muted)" }}
           >
             Üyelerin dönem bazlı borçlarını, tahsilat durumunu, geciken ödemeleri
-            ve son tahsilat hareketlerini daha net bir görünümle tek ekranda yönet.
+            ve son tahsilat hareketlerini tek ekranda takip et.
           </p>
 
           <div className="mt-5 flex flex-wrap gap-3">
+            <Link
+              href={organizationOverviewHref}
+              className="inline-flex items-center rounded-2xl border px-4 py-2.5 text-sm font-medium transition hover:brightness-110"
+              style={{
+                borderColor: "rgba(255,255,255,0.14)",
+                backgroundColor: "rgba(255,255,255,0.10)",
+                color: "var(--text-on-dark)",
+              }}
+            >
+              Organizasyon dashboardına dön
+            </Link>
+
+            <Link
+              href={paymentHistoryHref}
+              className="inline-flex items-center rounded-2xl border px-4 py-2.5 text-sm font-medium transition hover:brightness-110"
+              style={{
+                borderColor: "rgba(255,255,255,0.14)",
+                backgroundColor: "rgba(255,255,255,0.10)",
+                color: "var(--text-on-dark)",
+              }}
+            >
+              Detaylı ödeme geçmişi
+            </Link>
+          </div>
+
+          <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div
-              className="rounded-2xl border px-4 py-3"
+              className="rounded-2xl border p-4 backdrop-blur-sm"
               style={{
                 borderColor: "rgba(255,255,255,0.10)",
-                backgroundColor: "rgba(255,255,255,0.08)",
+                backgroundColor: "rgba(255,255,255,0.10)",
               }}
             >
               <div
@@ -104,16 +141,16 @@ export default function PaymentDashboardHeroCard({
               >
                 Tahsil edilen
               </div>
-              <div className="mt-1 text-[18px] font-semibold">
+              <div className="mt-2 text-[18px] font-semibold">
                 {formatCurrency(totalCollectedAmount, currency)}
               </div>
             </div>
 
             <div
-              className="rounded-2xl border px-4 py-3"
+              className="rounded-2xl border p-4 backdrop-blur-sm"
               style={{
                 borderColor: "rgba(255,255,255,0.10)",
-                backgroundColor: "rgba(255,255,255,0.08)",
+                backgroundColor: "rgba(255,255,255,0.10)",
               }}
             >
               <div
@@ -122,16 +159,16 @@ export default function PaymentDashboardHeroCard({
               >
                 Açık alacak
               </div>
-              <div className="mt-1 text-[18px] font-semibold">
-                {formatCurrency(totalRemainingAmount, currency)}
+              <div className="mt-2 text-[18px] font-semibold">
+                {formatCurrency(safeRemainingAmount, currency)}
               </div>
             </div>
 
             <div
-              className="rounded-2xl border px-4 py-3"
+              className="rounded-2xl border p-4 backdrop-blur-sm"
               style={{
                 borderColor: "rgba(255,255,255,0.10)",
-                backgroundColor: "rgba(255,255,255,0.08)",
+                backgroundColor: "rgba(255,255,255,0.10)",
               }}
             >
               <div
@@ -140,8 +177,8 @@ export default function PaymentDashboardHeroCard({
               >
                 Beklenen toplam
               </div>
-              <div className="mt-1 text-[18px] font-semibold">
-                {formatCurrency(totalExpectedAmount, currency)}
+              <div className="mt-2 text-[18px] font-semibold">
+                {formatCurrency(safeExpectedAmount, currency)}
               </div>
             </div>
           </div>
@@ -177,19 +214,18 @@ export default function PaymentDashboardHeroCard({
             >
               Tahsilat oranı
             </div>
-
-            <div className="mt-1 text-[30px] font-semibold">
-              %{normalizedRate.toFixed(0)}
+            <div className="mt-1.5 text-[18px] font-semibold">
+              %{safeCollectionRate.toFixed(0)}
             </div>
 
             <div
-              className="mt-3 h-3 w-full overflow-hidden rounded-full"
+              className="mt-4 h-3 w-full overflow-hidden rounded-full"
               style={{ backgroundColor: "rgba(255,255,255,0.12)" }}
             >
               <div
-                className="h-full rounded-full transition-all duration-300"
+                className="h-full rounded-full"
                 style={{
-                  width: `${normalizedRate}%`,
+                  width: `${safeCollectionRate}%`,
                   backgroundColor: "rgba(255,255,255,0.78)",
                 }}
               />
@@ -210,18 +246,18 @@ export default function PaymentDashboardHeroCard({
               Üye özeti
             </div>
 
-            <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
+            <div className="mt-3 grid grid-cols-3 gap-3 text-sm">
               <div>
                 <div style={{ color: "var(--text-on-dark-muted)" }}>Toplam üye</div>
-                <div className="mt-1 font-semibold">{memberCount}</div>
+                <div className="mt-1 text-lg font-semibold">{memberCount}</div>
               </div>
               <div>
                 <div style={{ color: "var(--text-on-dark-muted)" }}>Ödeyen</div>
-                <div className="mt-1 font-semibold">{paidCount}</div>
+                <div className="mt-1 text-lg font-semibold">{paidCount}</div>
               </div>
               <div>
                 <div style={{ color: "var(--text-on-dark-muted)" }}>Geciken</div>
-                <div className="mt-1 font-semibold">{overdueCount}</div>
+                <div className="mt-1 text-lg font-semibold">{overdueCount}</div>
               </div>
             </div>
           </div>

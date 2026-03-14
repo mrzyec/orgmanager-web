@@ -22,8 +22,6 @@ function getStatusLabel(status: MemberPaymentStatus) {
       return "Kısmi";
     case "overdue":
       return "Gecikti";
-    case "no-plan":
-      return "Aidat planı yok";
     default:
       return "Bekliyor";
   }
@@ -375,7 +373,7 @@ export default function PaymentSidePanels({
                   </div>
 
                   <div className="text-right text-xs" style={{ color: "var(--text-muted)" }}>
-                    Toplam tahsilat: {formatCurrency(member.totalCompletedAmount, activeCurrency)}
+                    Toplam tahsilat: {formatCurrency(member.totalCollectedAmount, activeCurrency)}
                   </div>
                 </div>
               ))

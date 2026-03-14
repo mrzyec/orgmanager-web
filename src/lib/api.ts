@@ -243,6 +243,48 @@ export type ResendVerificationEmailRequest = {
   email: string;
 };
 
+export type OrganizationPaymentHistoryStatus = "Completed" | "Cancelled";
+
+export type OrganizationPaymentHistoryItemDto = {
+  paymentId: string;
+  organizationId: string;
+  organizationMemberId: string;
+  userId: string;
+  memberDisplayName: string;
+  memberEmail: string;
+  role: string;
+  isMemberActive: boolean;
+  amount: number;
+  currency: string;
+  paymentMethod: string;
+  status: OrganizationPaymentHistoryStatus | string;
+  periodYear: number;
+  periodMonth?: number | null;
+  periodLabel: string;
+  paidAtUtc: string;
+  markedByUserId: string;
+  markedByDisplayName: string;
+  markedByEmail: string;
+  paymentSettingsVersion: number;
+  settingsAmountSnapshot: number;
+  note?: string | null;
+  cancelledAtUtc?: string | null;
+  cancelledByUserId?: string | null;
+  cancelledByDisplayName?: string | null;
+  cancelledByEmail?: string | null;
+  cancellationType?: string | null;
+  cancellationReasonCode?: string | null;
+  cancellationNote?: string | null;
+};
+
+export type GetOrganizationPaymentHistoryResponseDto = {
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  totalPages: number;
+  items: OrganizationPaymentHistoryItemDto[];
+};
+
 const ACCESS_TOKEN_KEY = "orgmanager_access_token";
 const REFRESH_TOKEN_KEY = "orgmanager_refresh_token";
 
@@ -796,6 +838,45 @@ export async function cancelOrganizationMemberPeriodLastPayment(
       method: "POST",
       body: JSON.stringify(body),
     },
+    true
+  );
+}
+
+export async function getOrganizationPaymentHistory(
+  organizationId: string,
+  params?: {
+    search?: string;
+    memberId?: string;
+    year?: number;
+    month?: number;
+    day?: number;
+    status?: "completed" | "cancelled";
+    includeCancelled?: boolean;
+    page?: number;
+    pageSize?: number;
+  }
+): Promise<GetOrganizationPaymentHistoryResponseDto> {
+  const query = new URLSearchParams();
+
+  if (params?.search) query.set("search", params.search);
+  if (params?.memberId) query.set("memberId", params.memberId);
+  if (typeof params?.year === "number") query.set("year", String(params.year));
+  if (typeof params?.month === "number") query.set("month", String(params.month));
+  if (typeof params?.day === "number") query.set("day", String(params.day));
+  if (params?.status) query.set("status", params.status);
+  if (typeof params?.includeCancelled === "boolean") {
+    query.set("includeCancelled", String(params.includeCancelled));
+  }
+  if (typeof params?.page === "number") query.set("page", String(params.page));
+  if (typeof params?.pageSize === "number") {
+    query.set("pageSize", String(params.pageSize));
+  }
+
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+
+  return request<GetOrganizationPaymentHistoryResponseDto>(
+    `/api/organizations/${organizationId}/payments/history${suffix}`,
+    { method: "GET" },
     true
   );
 }

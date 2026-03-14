@@ -1,10 +1,5 @@
 export type PaymentCollectionType = "monthly" | "yearly" | "disabled";
-export type MemberPaymentStatus =
-  | "paid"
-  | "partial"
-  | "unpaid"
-  | "overdue"
-  | "no-plan";
+export type MemberPaymentStatus = "paid" | "partial" | "unpaid" | "overdue" | "no-plan";
 export type StatusFilter = "all" | "paid" | "partial" | "unpaid" | "overdue";
 export type RecentPaymentStatusFilter = "all" | "completed" | "cancelled";
 
@@ -47,7 +42,7 @@ export type MemberRow = {
   currentDuePeriodLabel: string | null;
   overduePeriods: number;
   totalPaymentCount: number;
-  totalCompletedAmount: number;
+  totalCollectedAmount: number;
 };
 
 export type PaymentPeriodRow = {

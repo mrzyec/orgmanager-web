@@ -63,6 +63,7 @@ export function buildRecentPaymentMetrics(recentPayments: RecentPaymentItem[]) {
     {
       count: number;
       lastPaidAt: string | null;
+      totalCollectedAmount: number;
     }
   >();
 
@@ -74,6 +75,7 @@ export function buildRecentPaymentMetrics(recentPayments: RecentPaymentItem[]) {
     const current = map.get(payment.memberEmail) ?? {
       count: 0,
       lastPaidAt: null,
+      totalCollectedAmount: 0,
     };
 
     const latestDate =
@@ -84,6 +86,7 @@ export function buildRecentPaymentMetrics(recentPayments: RecentPaymentItem[]) {
     map.set(payment.memberEmail, {
       count: current.count + 1,
       lastPaidAt: latestDate,
+      totalCollectedAmount: current.totalCollectedAmount + payment.amount,
     });
   }
 
@@ -97,6 +100,7 @@ export function buildMembers(params: {
     {
       count: number;
       lastPaidAt: string | null;
+      totalCollectedAmount: number;
     }
   >;
   activePlanAmount: number;
@@ -167,6 +171,7 @@ export function buildMembers(params: {
           : formatMonthYear(item.nextDueDateUtc ?? null),
       overduePeriods,
       totalPaymentCount: paymentMetric?.count ?? 0,
+      totalCollectedAmount: paymentMetric?.totalCollectedAmount ?? 0,
     };
   });
 }
@@ -265,6 +270,10 @@ export function buildTopDebtors(members: MemberRow[]) {
 export function buildRegularPayers(members: MemberRow[]) {
   return [...members]
     .sort((a, b) => {
+      if (b.totalCollectedAmount !== a.totalCollectedAmount) {
+        return b.totalCollectedAmount - a.totalCollectedAmount;
+      }
+
       if (b.totalPaymentCount !== a.totalPaymentCount) {
         return b.totalPaymentCount - a.totalPaymentCount;
       }
