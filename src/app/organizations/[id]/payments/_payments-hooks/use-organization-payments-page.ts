@@ -219,7 +219,7 @@ export function useOrganizationPaymentsPage({
   }, [organizationId]);
 
   const loadRecentPaymentsOnly = useCallback(async () => {
-    const recentResult = await getRecentOrganizationPayments(organizationId, 20);
+    const recentResult = await getRecentOrganizationPayments(organizationId, 200);
     setRecentPayments(mapRecentPayments(recentResult));
   }, [organizationId]);
 
@@ -377,8 +377,8 @@ export function useOrganizationPaymentsPage({
     "TRY";
 
   const recentPaymentMetrics = useMemo(
-    () => buildRecentPaymentMetrics(recentPayments),
-    [recentPayments]
+    () => buildRecentPaymentMetrics(recentPayments, activePeriodInfo.label),
+    [recentPayments, activePeriodInfo.label]
   );
 
   const members = useMemo(

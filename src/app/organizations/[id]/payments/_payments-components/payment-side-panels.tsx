@@ -23,7 +23,7 @@ function getStatusLabel(status: MemberPaymentStatus) {
     case "overdue":
       return "Gecikti";
     case "no-plan":
-      return "Plan yok";
+      return "Aidat planı yok";
     default:
       return "Bekliyor";
   }
@@ -192,8 +192,10 @@ export default function PaymentSidePanels({
 
                     {payment.status === "Cancelled" ? (
                       <>
-                        <div>İptal tarihi: {formatDate(payment.cancelledAtUtc ?? null)}</div>
-                        <div>İptal eden: {payment.cancelledByDisplayName ?? "—"}</div>
+                        <div>İptal tarihi: {formatDate(payment.cancelledAtUtc)}</div>
+                        <div>
+                          İptal eden: {payment.cancelledByDisplayName ?? "—"}
+                        </div>
                         <div>
                           İptal tipi:{" "}
                           {getPaymentCancellationTypeLabel(payment.cancellationType)}
@@ -314,7 +316,7 @@ export default function PaymentSidePanels({
 
       <PaymentSectionCard
         title="Düzenli Ödeyenler"
-        description="Düzenli ödeme davranışında olan üyeler. Sağdaki değer bu dönemde ödedikleri tutarı gösterir."
+        description="Toplam tahsil edilen tutara göre sıralanır."
         rightSlot={
           <input
             value={regularPayersSearch}
@@ -373,7 +375,7 @@ export default function PaymentSidePanels({
                   </div>
 
                   <div className="text-right text-xs" style={{ color: "var(--text-muted)" }}>
-                    Bu dönem ödenen: {formatCurrency(member.paidAmount, activeCurrency)}
+                    Toplam tahsilat: {formatCurrency(member.totalCompletedAmount, activeCurrency)}
                   </div>
                 </div>
               ))

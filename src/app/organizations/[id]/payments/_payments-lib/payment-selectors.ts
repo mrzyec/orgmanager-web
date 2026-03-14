@@ -14,6 +14,49 @@ import type {
   RecentPaymentItem,
 } from "./payment-page-types";
 
+const MONEY_EPSILON = 0.009;
+
+function isCloseToZero(value: number) {
+  return Math.abs(value) <= MONEY_EPSILON;
+}
+
+function hasPartialOutstandingDebt(totalOpenDebt: number, expectedAmount: number) {
+  if (expectedAmount <= 0 || totalOpenDebt <= 0) return false;
+
+  const remainder = totalOpenDebt % expectedAmount;
+  const normalizedRemainder = Math.abs(remainder);
+
+  if (isCloseToZero(normalizedRemainder)) return false;
+  if (Math.abs(normalizedRemainder - expectedAmount) <= MONEY_EPSILON) return false;
+
+  return true;
+}
+
+function isMemberPartiallyPaid(params: {
+  expectedAmount: number;
+  paidAmount: number;
+  totalOpenDebt: number;
+  overduePeriods: number;
+}) {
+  const { expectedAmount, paidAmount, totalOpenDebt, overduePeriods } = params;
+
+  if (expectedAmount <= 0) return false;
+
+  const hasPartialDebtFromOutstanding = hasPartialOutstandingDebt(
+    totalOpenDebt,
+    expectedAmount
+  );
+
+  if (hasPartialDebtFromOutstanding) return true;
+
+  const hasCurrentPeriodPartialPayment =
+    overduePeriods <= 0 &&
+    paidAmount > 0 &&
+    paidAmount + MONEY_EPSILON < expectedAmount;
+
+  return hasCurrentPeriodPartialPayment;
+}
+
 export function buildRecentPaymentMetrics(recentPayments: RecentPaymentItem[]) {
   const map = new Map<
     string,
@@ -69,21 +112,31 @@ export function buildMembers(params: {
   return memberStatuses.map((item) => {
     const paidAmount = item.currentPeriodPaidAmount ?? 0;
     const remainingAmount = Math.max(activePlanAmount - paidAmount, 0);
-    const totalOpenDebt = activePlanAmount <= 0
-      ? 0
-      : item.totalOutstandingAmount ?? remainingAmount;
+    const totalOpenDebt =
+      activePlanAmount <= 0 ? 0 : item.totalOutstandingAmount ?? remainingAmount;
 
     const paymentMetric = recentPaymentMetrics.get(item.email);
+    const overduePeriods =
+      activePlanAmount <= 0
+        ? 0
+        : item.overduePeriodCount ?? (item.isOverdue ? 1 : 0);
+
+    const isPartial = isMemberPartiallyPaid({
+      expectedAmount: activePlanAmount,
+      paidAmount,
+      totalOpenDebt,
+      overduePeriods,
+    });
 
     let status: MemberPaymentStatus;
 
     if (activePlanAmount <= 0) {
       status = "no-plan";
-    } else if (item.isOverdue && paidAmount > 0) {
+    } else if (overduePeriods > 0 && isPartial) {
       status = "partial";
-    } else if (item.isOverdue) {
+    } else if (overduePeriods > 0) {
       status = "overdue";
-    } else if (paidAmount >= activePlanAmount && activePlanAmount > 0) {
+    } else if (paidAmount + MONEY_EPSILON >= activePlanAmount && activePlanAmount > 0) {
       status = "paid";
     } else if (paidAmount > 0) {
       status = "partial";
@@ -112,10 +165,7 @@ export function buildMembers(params: {
             ? formatYearOnly(item.nextDueDateUtc)
             : "—"
           : formatMonthYear(item.nextDueDateUtc ?? null),
-      overduePeriods:
-        activePlanAmount <= 0
-          ? 0
-          : item.overduePeriodCount ?? (item.isOverdue ? 1 : 0),
+      overduePeriods,
       totalPaymentCount: paymentMetric?.count ?? 0,
     };
   });
@@ -151,7 +201,10 @@ export function filterMembers(params: {
   });
 }
 
-export function filterRecentPayments(recentPayments: RecentPaymentItem[], search: string) {
+export function filterRecentPayments(
+  recentPayments: RecentPaymentItem[],
+  search: string
+) {
   const q = search.trim().toLowerCase();
 
   return recentPayments.filter((item) => {
@@ -173,9 +226,20 @@ export function calculateSummaryStats(members: MemberRow[]) {
   const collectionRate =
     totalExpectedAmount > 0 ? (totalCollectedAmount / totalExpectedAmount) * 100 : 0;
 
-  const overdueCount = members.filter((x) => x.status === "overdue").length;
-  const partialCount = members.filter((x) => x.status === "partial").length;
-  const paidCount = members.filter((x) => x.status === "paid").length;
+  const paidCount = members.filter(
+    (x) => x.expectedAmount > 0 && x.paidAmount + MONEY_EPSILON >= x.expectedAmount
+  ).length;
+
+  const partialCount = members.filter((x) =>
+    isMemberPartiallyPaid({
+      expectedAmount: x.expectedAmount,
+      paidAmount: x.paidAmount,
+      totalOpenDebt: x.totalOpenDebt,
+      overduePeriods: x.overduePeriods,
+    })
+  ).length;
+
+  const overdueCount = members.filter((x) => x.overduePeriods > 0).length;
   const unpaidCount = members.filter((x) => x.status === "unpaid").length;
   const neverPaidCount = members.filter((x) => x.totalPaymentCount === 0).length;
 

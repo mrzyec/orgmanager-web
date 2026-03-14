@@ -1,7 +1,5 @@
 "use client";
 
-import Link from "next/link";
-
 type PaymentCollectionType = "monthly" | "yearly" | "disabled";
 
 function getCollectionTypeLabel(type: PaymentCollectionType) {
@@ -24,8 +22,6 @@ function formatCurrency(amount: number, currency = "TRY") {
 }
 
 type PaymentDashboardHeroCardProps = {
-  organizationId: string;
-  organizationName: string;
   collectionType: PaymentCollectionType;
   activePeriodLabel: string;
   totalCollectedAmount: number;
@@ -33,14 +29,12 @@ type PaymentDashboardHeroCardProps = {
   totalRemainingAmount: number;
   collectionRate: number;
   currency: string;
-  totalMemberCount: number;
+  memberCount: number;
   paidCount: number;
   overdueCount: number;
 };
 
 export default function PaymentDashboardHeroCard({
-  organizationId,
-  organizationName,
   collectionType,
   activePeriodLabel,
   totalCollectedAmount,
@@ -48,22 +42,24 @@ export default function PaymentDashboardHeroCard({
   totalRemainingAmount,
   collectionRate,
   currency,
-  totalMemberCount,
+  memberCount,
   paidCount,
   overdueCount,
 }: PaymentDashboardHeroCardProps) {
+  const normalizedRate = Math.max(0, Math.min(100, collectionRate));
+
   return (
     <div
       className="overflow-hidden rounded-[28px] border p-5 text-white shadow-[0_10px_30px_rgba(15,23,42,0.18)] md:p-6"
       style={{
         borderColor: "var(--border)",
         background:
-          "linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 55%, #334155 100%)",
+          "linear-gradient(120deg, var(--primary) 0%, var(--primary-hover) 55%, #334155 100%)",
         color: "var(--text-on-dark)",
       }}
     >
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.3fr_0.9fr]">
-        <div className="min-w-0">
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1.2fr_0.8fr]">
+        <div>
           <div className="flex flex-wrap items-center gap-2">
             <div
               className="inline-flex rounded-full border px-3 py-1 text-xs font-medium"
@@ -77,57 +73,26 @@ export default function PaymentDashboardHeroCard({
             </div>
 
             <div
-              className="inline-flex rounded-full border px-3 py-1 text-xs font-medium"
-              style={{
-                borderColor: "rgba(255,255,255,0.15)",
-                backgroundColor: "rgba(255,255,255,0.08)",
-                color: "var(--text-on-dark-muted)",
-              }}
-            >
-              {organizationName}
-            </div>
+              className="h-2 w-6 rounded-full"
+              style={{ backgroundColor: "rgba(255,255,255,0.14)" }}
+            />
           </div>
 
-          <h1 className="mt-4 text-[30px] font-semibold tracking-tight md:text-[34px]">
+          <h1 className="mt-4 text-[34px] font-semibold tracking-tight">
             Aidat ve Ödemeler
           </h1>
 
           <p
-            className="mt-2 max-w-2xl text-sm leading-6"
+            className="mt-3 max-w-2xl text-sm leading-7"
             style={{ color: "var(--text-on-dark-muted)" }}
           >
-            Üyelerin dönem bazlı borçlarını, tahsilat durumunu, geciken ödemeleri ve
-            son hareketleri daha net bir görünümle tek ekranda yönet.
+            Üyelerin dönem bazlı borçlarını, tahsilat durumunu, geciken ödemeleri
+            ve son tahsilat hareketlerini daha net bir görünümle tek ekranda yönet.
           </p>
 
           <div className="mt-5 flex flex-wrap gap-3">
-            <Link
-              href={`/organizations/${organizationId}`}
-              className="rounded-2xl border px-4 py-2.5 text-sm font-medium transition hover:brightness-110"
-              style={{
-                borderColor: "rgba(255,255,255,0.16)",
-                backgroundColor: "rgba(255,255,255,0.12)",
-                color: "var(--text-on-dark)",
-              }}
-            >
-              Organizasyon özetine dön
-            </Link>
-
             <div
-              className="rounded-2xl border px-4 py-2.5 text-sm font-medium"
-              style={{
-                borderColor: "rgba(255,255,255,0.16)",
-                backgroundColor: "rgba(255,255,255,0.06)",
-                color: "var(--text-on-dark-muted)",
-              }}
-            >
-              Detaylı tarih bazlı ödeme geçmişi bir sonraki adımda eklenecek
-            </div>
-          </div>
-
-          <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <div
-              className="rounded-2xl border p-4"
+              className="rounded-2xl border px-4 py-3"
               style={{
                 borderColor: "rgba(255,255,255,0.10)",
                 backgroundColor: "rgba(255,255,255,0.08)",
@@ -139,13 +104,13 @@ export default function PaymentDashboardHeroCard({
               >
                 Tahsil edilen
               </div>
-              <div className="mt-1.5 text-[20px] font-semibold">
+              <div className="mt-1 text-[18px] font-semibold">
                 {formatCurrency(totalCollectedAmount, currency)}
               </div>
             </div>
 
             <div
-              className="rounded-2xl border p-4"
+              className="rounded-2xl border px-4 py-3"
               style={{
                 borderColor: "rgba(255,255,255,0.10)",
                 backgroundColor: "rgba(255,255,255,0.08)",
@@ -157,13 +122,13 @@ export default function PaymentDashboardHeroCard({
               >
                 Açık alacak
               </div>
-              <div className="mt-1.5 text-[20px] font-semibold">
+              <div className="mt-1 text-[18px] font-semibold">
                 {formatCurrency(totalRemainingAmount, currency)}
               </div>
             </div>
 
             <div
-              className="rounded-2xl border p-4"
+              className="rounded-2xl border px-4 py-3"
               style={{
                 borderColor: "rgba(255,255,255,0.10)",
                 backgroundColor: "rgba(255,255,255,0.08)",
@@ -175,14 +140,14 @@ export default function PaymentDashboardHeroCard({
               >
                 Beklenen toplam
               </div>
-              <div className="mt-1.5 text-[20px] font-semibold">
+              <div className="mt-1 text-[18px] font-semibold">
                 {formatCurrency(totalExpectedAmount, currency)}
               </div>
             </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-1">
+        <div className="grid grid-cols-1 gap-3">
           <div
             className="rounded-2xl border p-4 backdrop-blur-sm"
             style={{
@@ -212,13 +177,21 @@ export default function PaymentDashboardHeroCard({
             >
               Tahsilat oranı
             </div>
-            <div className="mt-1.5 text-[28px] font-semibold">
-              %{collectionRate.toFixed(0)}
+
+            <div className="mt-1 text-[30px] font-semibold">
+              %{normalizedRate.toFixed(0)}
             </div>
-            <div className="mt-2 h-2 rounded-full bg-white/15">
+
+            <div
+              className="mt-3 h-3 w-full overflow-hidden rounded-full"
+              style={{ backgroundColor: "rgba(255,255,255,0.12)" }}
+            >
               <div
-                className="h-2 rounded-full bg-white"
-                style={{ width: `${Math.max(0, Math.min(collectionRate, 100))}%` }}
+                className="h-full rounded-full transition-all duration-300"
+                style={{
+                  width: `${normalizedRate}%`,
+                  backgroundColor: "rgba(255,255,255,0.78)",
+                }}
               />
             </div>
           </div>
@@ -236,10 +209,20 @@ export default function PaymentDashboardHeroCard({
             >
               Üye özeti
             </div>
-            <div className="mt-2 space-y-1 text-sm">
-              <div>Toplam üye: {totalMemberCount}</div>
-              <div>Ödeyen: {paidCount}</div>
-              <div>Geciken: {overdueCount}</div>
+
+            <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
+              <div>
+                <div style={{ color: "var(--text-on-dark-muted)" }}>Toplam üye</div>
+                <div className="mt-1 font-semibold">{memberCount}</div>
+              </div>
+              <div>
+                <div style={{ color: "var(--text-on-dark-muted)" }}>Ödeyen</div>
+                <div className="mt-1 font-semibold">{paidCount}</div>
+              </div>
+              <div>
+                <div style={{ color: "var(--text-on-dark-muted)" }}>Geciken</div>
+                <div className="mt-1 font-semibold">{overdueCount}</div>
+              </div>
             </div>
           </div>
         </div>

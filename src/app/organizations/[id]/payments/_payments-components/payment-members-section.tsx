@@ -25,7 +25,7 @@ function getStatusLabel(status: MemberPaymentStatus) {
     case "unpaid":
       return "Bekliyor";
     default:
-      return "Plan yok";
+      return "Aidat planı yok";
   }
 }
 
@@ -108,7 +108,7 @@ function memberHasNoPlan(member: MemberRow) {
     member.expectedAmount <= 0 &&
     member.paidAmount <= 0 &&
     member.totalOpenDebt <= 0 &&
-    member.currentDuePeriodLabel === "Plan yok"
+    member.currentDuePeriodLabel === null
   );
 }
 
@@ -268,7 +268,7 @@ export default function PaymentMembersSection({
                           className="rounded-full border px-2.5 py-1 text-xs font-medium"
                           style={getStatusBadgeStyle(member.status)}
                         >
-                          {hasNoPlan ? "Plan yok" : getStatusLabel(member.status)}
+                          {hasNoPlan ? "Aidat planı yok" : getStatusLabel(member.status)}
                         </span>
 
                         {!member.isActive ? (
@@ -300,7 +300,7 @@ export default function PaymentMembersSection({
                           className="rounded-full px-2.5 py-1 shadow-sm"
                           style={{ backgroundColor: "var(--surface-solid)" }}
                         >
-                          Aktif borç dönemi: {hasNoPlan ? "Plan yok" : member.currentDuePeriodLabel ?? "—"}
+                          Aktif borç dönemi: {hasNoPlan ? "Aidat planı yok" : member.currentDuePeriodLabel ?? "—"}
                         </span>
                         <span
                           className="rounded-full px-2.5 py-1 shadow-sm"
@@ -326,7 +326,7 @@ export default function PaymentMembersSection({
                       />
                       <PaymentCompactSummaryItem
                         label="Durum"
-                        value={hasNoPlan ? "Plan yok" : getStatusLabel(member.status)}
+                        value={hasNoPlan ? "Aidat planı yok" : getStatusLabel(member.status)}
                       />
                     </div>
                   </div>
