@@ -1,5 +1,6 @@
 import type {
   OrganizationPaymentSettingsDto,
+  PaymentCancellationReasonCode,
   RecentOrganizationMemberPaymentDto,
 } from "@/lib/api";
 import type {
@@ -204,6 +205,32 @@ export function buildRevisionIsoFromDateParts(
   ).toISOString();
 }
 
+export function getPaymentCancellationReasonOptions() {
+  return [
+    { value: "WrongAmount", label: "Yanlış tutar girildi" },
+    { value: "WrongMember", label: "Yanlış üyeye ödeme işlendi" },
+    { value: "WrongPeriod", label: "Yanlış döneme ödeme işlendi" },
+    { value: "DuplicatePayment", label: "Mükerrer ödeme kaydı" },
+    { value: "WrongPaymentPlan", label: "Hatalı aidat planı" },
+    { value: "WrongPlanRevision", label: "Hatalı plan revizyonu" },
+    { value: "TestDataCleanup", label: "Test verisi temizliği" },
+    { value: "Other", label: "Diğer" },
+  ] as const;
+}
+
+export function getPaymentCancellationReasonLabel(
+  code: PaymentCancellationReasonCode | string | null | undefined
+) {
+  const options = getPaymentCancellationReasonOptions();
+  return options.find((x) => x.value === code)?.label ?? "—";
+}
+
+export function getPaymentCancellationTypeLabel(type: string | null | undefined) {
+  if (type === "BulkRollback") return "Toplu geri al";
+  if (type === "ManualSingle") return "Bireysel iptal";
+  return "—";
+}
+
 export function mapRecentPayments(
   items: RecentOrganizationMemberPaymentDto[]
 ): RecentPaymentItem[] {
@@ -218,5 +245,10 @@ export function mapRecentPayments(
     markedByDisplayName: x.markedByEmail,
     methodLabel: x.paymentMethod,
     status: x.status,
+    cancelledAtUtc: x.cancelledAtUtc ?? null,
+    cancelledByDisplayName: x.cancelledByEmail ?? null,
+    cancellationType: x.cancellationType ?? null,
+    cancellationReasonCode: x.cancellationReasonCode ?? null,
+    cancellationNote: x.cancellationNote ?? null,
   }));
 }

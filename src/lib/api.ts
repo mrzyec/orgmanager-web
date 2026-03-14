@@ -81,6 +81,28 @@ export type CreateOrganizationRequest = {
 
 export type PaymentMethod = "Cash" | "BankTransfer" | "Card" | "Other";
 
+export type PaymentCancellationReasonCode =
+  | "WrongAmount"
+  | "WrongMember"
+  | "WrongPeriod"
+  | "DuplicatePayment"
+  | "WrongPaymentPlan"
+  | "WrongPlanRevision"
+  | "TestDataCleanup"
+  | "Other";
+
+export type PaymentCancellationType = "ManualSingle" | "BulkRollback";
+
+export type CancelOrganizationMemberPaymentRequest = {
+  reasonCode: PaymentCancellationReasonCode;
+  note?: string | null;
+};
+
+export type RollbackPlanAndDeleteRequest = {
+  reasonCode: PaymentCancellationReasonCode;
+  note: string;
+};
+
 export type OrganizationPaymentSettingsDto = {
   id: string;
   organizationId: string;
@@ -204,6 +226,12 @@ export type RecentOrganizationMemberPaymentDto = {
   paymentSettingsVersion: number;
   settingsAmountSnapshot: number;
   note?: string | null;
+  cancelledAtUtc?: string | null;
+  cancelledByUserId?: string | null;
+  cancelledByEmail?: string | null;
+  cancellationType?: PaymentCancellationType | string | null;
+  cancellationReasonCode?: PaymentCancellationReasonCode | string | null;
+  cancellationNote?: string | null;
 };
 
 export type VerifyEmailResponse = {
@@ -664,6 +692,21 @@ export async function deleteOrganizationPaymentPlan(
   );
 }
 
+export async function rollbackAndDeleteOrganizationPaymentPlan(
+  organizationId: string,
+  year: number,
+  body: RollbackPlanAndDeleteRequest
+): Promise<void> {
+  await request<null>(
+    `/api/organizations/${organizationId}/payments/plans/${year}/rollback-and-delete`,
+    {
+      method: "POST",
+      body: JSON.stringify(body),
+    },
+    true
+  );
+}
+
 export async function getOrganizationMemberPaymentStatuses(
   organizationId: string
 ): Promise<OrganizationMemberPaymentStatusDto[]> {
@@ -728,12 +771,14 @@ export async function getRecentOrganizationPayments(
 
 export async function cancelOrganizationPayment(
   organizationId: string,
-  paymentId: string
+  paymentId: string,
+  body: CancelOrganizationMemberPaymentRequest
 ): Promise<void> {
   await request<null>(
     `/api/organizations/${organizationId}/payments/payments/${paymentId}/cancel`,
     {
       method: "POST",
+      body: JSON.stringify(body),
     },
     true
   );
@@ -742,12 +787,14 @@ export async function cancelOrganizationPayment(
 export async function cancelOrganizationMemberPeriodLastPayment(
   organizationId: string,
   memberId: string,
-  periodId: string
+  periodId: string,
+  body: CancelOrganizationMemberPaymentRequest
 ): Promise<void> {
   await request<null>(
     `/api/organizations/${organizationId}/payments/members/${memberId}/payment-periods/${periodId}/cancel-last-payment`,
     {
       method: "POST",
+      body: JSON.stringify(body),
     },
     true
   );

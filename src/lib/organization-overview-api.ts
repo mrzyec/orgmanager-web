@@ -53,7 +53,6 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
         const text = await response.text();
         if (text) message = text;
       } catch {
-        // ignore
       }
     }
 
@@ -99,7 +98,7 @@ export async function getOrganizationOverviewSummary(
 ): Promise<OrganizationOverviewSummaryDto> {
   const [joinRequests, paymentSettings, paymentStatuses] = await Promise.all([
     apiFetch<OrganizationJoinRequestDto[]>(
-      `/api/organizations/${organizationId}/join-requests`
+      `/api/organization-join-requests/organization/${organizationId}`
     ).catch(() => []),
     apiFetch<OrganizationPaymentSettingsDto>(
       `/api/organizations/${organizationId}/payments/settings`

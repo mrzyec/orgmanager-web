@@ -12,18 +12,19 @@ import {
   getOrganizationPaymentSettings,
   getRecentOrganizationPayments,
   payOrganizationMemberPeriod,
+  rollbackAndDeleteOrganizationPaymentPlan,
   upsertOrganizationPaymentPlan,
   upsertOrganizationPaymentSettings,
   type OrganizationMemberPaymentPeriodDto,
   type OrganizationMemberPaymentStatusDto,
   type OrganizationPaymentPlanDto,
   type OrganizationPaymentSettingsDto,
+  type PaymentCancellationReasonCode,
   type PaymentMethod,
 } from "@/lib/api";
 import {
   buildIsoFromDateParts,
   buildRevisionIsoFromDateParts,
-  formatMonthYear,
   getCollectionTypeLabel,
   getDateParts,
   getDefaultYearString,
@@ -46,6 +47,7 @@ import type {
   PendingPaymentCancelConfirm,
   PendingPaymentConfirm,
   PendingPlanDeleteConfirm,
+  PlanDeleteMode,
   PlanFormState,
   PaymentPeriodRow,
   RecentPaymentItem,
@@ -59,6 +61,21 @@ type Params = {
   organizationId: string;
   showToast: (args: { message: string; type: "success" | "error" | "info" }) => void;
 };
+
+type PaymentCancellationReasonSelection = PaymentCancellationReasonCode | "";
+
+const DEFAULT_PLAN_ROLLBACK_REASON: PaymentCancellationReasonCode = "WrongPaymentPlan";
+
+function isPlanLockedForDirectUpdateError(message: string) {
+  const normalized = message.toLocaleLowerCase("tr-TR");
+
+  return (
+    normalized.includes("mevcut aidat planı doğrudan güncellenemez") ||
+    normalized.includes("plan revizyonu eklemelisin") ||
+    normalized.includes("revizyon kullanmalisin") ||
+    normalized.includes("revizyon kullanmalısın")
+  );
+}
 
 export function useOrganizationPaymentsPage({
   organizationId,
@@ -90,6 +107,15 @@ export function useOrganizationPaymentsPage({
   const [pendingPlanDelete, setPendingPlanDelete] = useState<PendingPlanDeleteConfirm | null>(null);
   const [pendingPaymentCancel, setPendingPaymentCancel] =
     useState<PendingPaymentCancelConfirm | null>(null);
+
+  const [planDeleteMode, setPlanDeleteMode] = useState<PlanDeleteMode>("delete");
+  const [planDeleteReasonCode, setPlanDeleteReasonCode] =
+    useState<PaymentCancellationReasonCode>(DEFAULT_PLAN_ROLLBACK_REASON);
+  const [planDeleteNote, setPlanDeleteNote] = useState("");
+
+  const [paymentCancelReasonCode, setPaymentCancelReasonCode] =
+    useState<PaymentCancellationReasonSelection>("");
+  const [paymentCancelNote, setPaymentCancelNote] = useState("");
 
   const [settingsForm, setSettingsForm] = useState<SettingsFormState>({
     isEnabled: false,
@@ -317,7 +343,10 @@ export function useOrganizationPaymentsPage({
 
     if (now < start) {
       return {
-        label: formatMonthYear(settings.startDateUtc),
+        label: new Intl.DateTimeFormat("tr-TR", {
+          month: "long",
+          year: "numeric",
+        }).format(start),
         planYear: start.getUTCFullYear(),
       };
     }
@@ -640,19 +669,67 @@ export function useOrganizationPaymentsPage({
         startDateUtc: startDateIso,
       });
 
+      let planUpdateSkippedBecauseRevisionIsRequired = false;
+
       const selectedYear = settingsForm.startYear ? Number(settingsForm.startYear) : null;
 
       if (settingsForm.isEnabled && selectedYear && numericAmount !== null) {
-        await upsertOrganizationPaymentPlan(organizationId, selectedYear, {
-          period: settingsForm.period,
-          amount: numericAmount,
-          currency: planForm.currency,
-          isActive: planForm.isActive,
-        });
+        const existingPlan = plans.find(
+          (x) => x.year === selectedYear && x.period === settingsForm.period
+        );
+
+        const shouldCreatePlan = !existingPlan;
+        const shouldUpdatePlan =
+          !!existingPlan &&
+          (
+            existingPlan.amount !== numericAmount ||
+            existingPlan.currency !== planForm.currency ||
+            existingPlan.isActive !== planForm.isActive
+          );
+
+        if (shouldCreatePlan) {
+          await upsertOrganizationPaymentPlan(organizationId, selectedYear, {
+            period: settingsForm.period,
+            amount: numericAmount,
+            currency: planForm.currency,
+            isActive: planForm.isActive,
+          });
+        } else if (shouldUpdatePlan) {
+          try {
+            await upsertOrganizationPaymentPlan(organizationId, selectedYear, {
+              period: settingsForm.period,
+              amount: numericAmount,
+              currency: planForm.currency,
+              isActive: planForm.isActive,
+            });
+          } catch (error) {
+            if (
+              error instanceof Error &&
+              isPlanLockedForDirectUpdateError(error.message)
+            ) {
+              planUpdateSkippedBecauseRevisionIsRequired = true;
+            } else {
+              throw error;
+            }
+          }
+        }
       }
 
-      await Promise.all([loadSettingsAndPlans(), loadStatusesOnly()]);
+      await Promise.all([
+        loadSettingsAndPlans(),
+        loadStatusesOnly(),
+        loadRecentPaymentsOnly(),
+      ]);
       await refreshExpandedMemberPeriods();
+
+      if (planUpdateSkippedBecauseRevisionIsRequired) {
+        showToast({
+          message:
+            "Aidat ayarları kaydedildi. Ancak seçili yılda ödeme geçmişi bulunduğu için plan tutarı doğrudan güncellenmedi. Tutar değişikliği için revizyon eklemelisin.",
+          type: "info",
+        });
+        return;
+      }
 
       showToast({
         message: !settingsForm.isEnabled
@@ -671,12 +748,14 @@ export function useOrganizationPaymentsPage({
       setIsSavingAll(false);
     }
   }, [
+    loadRecentPaymentsOnly,
     loadSettingsAndPlans,
     loadStatusesOnly,
     organizationId,
     planForm.amount,
     planForm.currency,
     planForm.isActive,
+    plans,
     refreshExpandedMemberPeriods,
     settingsForm,
     showToast,
@@ -787,25 +866,62 @@ export function useOrganizationPaymentsPage({
       year: plan.year,
       period: plan.period,
     });
+    setPlanDeleteMode("delete");
+    setPlanDeleteReasonCode(DEFAULT_PLAN_ROLLBACK_REASON);
+    setPlanDeleteNote("");
   }, []);
 
   const confirmDeletePlan = useCallback(async () => {
     if (!pendingPlanDelete) return;
 
+    const isRollbackMode = planDeleteMode === "rollback";
+
+    if (isRollbackMode && !planDeleteNote.trim()) {
+      showToast({
+        message: "Toplu geri al ve sil işleminde açıklama zorunludur.",
+        type: "error",
+      });
+      return;
+    }
+
+    if (isRollbackMode && planDeleteReasonCode === "Other" && !planDeleteNote.trim()) {
+      showToast({
+        message: "Diğer sebebi seçildiğinde açıklama zorunludur.",
+        type: "error",
+      });
+      return;
+    }
+
     try {
       setDeletingPlanYear(pendingPlanDelete.year);
 
-      await deleteOrganizationPaymentPlan(organizationId, pendingPlanDelete.year);
+      if (isRollbackMode) {
+        await rollbackAndDeleteOrganizationPaymentPlan(
+          organizationId,
+          pendingPlanDelete.year,
+          {
+            reasonCode: planDeleteReasonCode,
+            note: planDeleteNote.trim(),
+          }
+        );
+      } else {
+        await deleteOrganizationPaymentPlan(organizationId, pendingPlanDelete.year);
+      }
 
-      await Promise.all([loadSettingsAndPlans(), loadStatusesOnly()]);
+      await Promise.all([loadSettingsAndPlans(), loadStatusesOnly(), loadRecentPaymentsOnly()]);
       await refreshExpandedMemberPeriods();
 
       showToast({
-        message: `${pendingPlanDelete.year} aidat planı silindi.`,
+        message: isRollbackMode
+          ? `${pendingPlanDelete.year} aidat planı toplu geri alınarak silindi.`
+          : `${pendingPlanDelete.year} aidat planı silindi.`,
         type: "success",
       });
 
       setPendingPlanDelete(null);
+      setPlanDeleteMode("delete");
+      setPlanDeleteReasonCode(DEFAULT_PLAN_ROLLBACK_REASON);
+      setPlanDeleteNote("");
     } catch (error) {
       showToast({
         message:
@@ -816,10 +932,14 @@ export function useOrganizationPaymentsPage({
       setDeletingPlanYear(null);
     }
   }, [
+    loadRecentPaymentsOnly,
     loadSettingsAndPlans,
     loadStatusesOnly,
     organizationId,
     pendingPlanDelete,
+    planDeleteMode,
+    planDeleteNote,
+    planDeleteReasonCode,
     refreshExpandedMemberPeriods,
     showToast,
   ]);
@@ -834,6 +954,9 @@ export function useOrganizationPaymentsPage({
       amount: payment.amount,
       currency: payment.currency,
     });
+
+    setPaymentCancelReasonCode("");
+    setPaymentCancelNote("");
   }, []);
 
   const requestCancelPaymentForPeriod = useCallback(
@@ -859,6 +982,9 @@ export function useOrganizationPaymentsPage({
         amount: payment.amount,
         currency: payment.currency,
       });
+
+      setPaymentCancelReasonCode("");
+      setPaymentCancelNote("");
     },
     []
   );
@@ -866,17 +992,45 @@ export function useOrganizationPaymentsPage({
   const confirmCancelPayment = useCallback(async () => {
     if (!pendingPaymentCancel) return;
 
+    if (!paymentCancelReasonCode) {
+      showToast({
+        message: "Ödeme iptali için bir sebep seçmelisin.",
+        type: "error",
+      });
+      return;
+    }
+
+    if (paymentCancelReasonCode === "Other" && !paymentCancelNote.trim()) {
+      showToast({
+        message: "Diğer sebebi seçildiğinde açıklama zorunludur.",
+        type: "error",
+      });
+      return;
+    }
+
     try {
-      setCancellingPaymentId(pendingPaymentCancel.paymentId ?? pendingPaymentCancel.periodId ?? null);
+      setCancellingPaymentId(
+        pendingPaymentCancel.paymentId ?? pendingPaymentCancel.periodId ?? null
+      );
+
+      const payload = {
+        reasonCode: paymentCancelReasonCode,
+        note: paymentCancelNote.trim() || null,
+      };
 
       if (pendingPaymentCancel.memberId && pendingPaymentCancel.periodId) {
         await cancelOrganizationMemberPeriodLastPayment(
           organizationId,
           pendingPaymentCancel.memberId,
-          pendingPaymentCancel.periodId
+          pendingPaymentCancel.periodId,
+          payload
         );
       } else if (pendingPaymentCancel.paymentId) {
-        await cancelOrganizationPayment(organizationId, pendingPaymentCancel.paymentId);
+        await cancelOrganizationPayment(
+          organizationId,
+          pendingPaymentCancel.paymentId,
+          payload
+        );
       } else {
         throw new Error("İptal edilecek ödeme bilgisi bulunamadı.");
       }
@@ -890,6 +1044,8 @@ export function useOrganizationPaymentsPage({
       });
 
       setPendingPaymentCancel(null);
+      setPaymentCancelReasonCode("");
+      setPaymentCancelNote("");
     } catch (error) {
       showToast({
         message: error instanceof Error ? error.message : "Ödeme kaydı iptal edilemedi.",
@@ -902,6 +1058,8 @@ export function useOrganizationPaymentsPage({
     loadRecentPaymentsOnly,
     loadStatusesOnly,
     organizationId,
+    paymentCancelNote,
+    paymentCancelReasonCode,
     pendingPaymentCancel,
     refreshExpandedMemberPeriods,
     showToast,
@@ -1081,6 +1239,18 @@ export function useOrganizationPaymentsPage({
     setPendingPlanDelete,
     pendingPaymentCancel,
     setPendingPaymentCancel,
+
+    planDeleteMode,
+    setPlanDeleteMode,
+    planDeleteReasonCode,
+    setPlanDeleteReasonCode,
+    planDeleteNote,
+    setPlanDeleteNote,
+
+    paymentCancelReasonCode,
+    setPaymentCancelReasonCode,
+    paymentCancelNote,
+    setPaymentCancelNote,
 
     totalCollectedAmount,
     totalExpectedAmount,

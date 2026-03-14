@@ -4,6 +4,8 @@ import PaymentSectionCard from "./payment-section-card";
 import {
   formatCurrency,
   formatDate,
+  getPaymentCancellationReasonLabel,
+  getPaymentCancellationTypeLabel,
 } from "../_payments-lib/payment-formatters";
 import type {
   MemberPaymentStatus,
@@ -185,6 +187,30 @@ export default function PaymentSidePanels({
                   <div className="mt-2 space-y-1 text-xs" style={{ color: "var(--text-muted)" }}>
                     <div>Ödeme tarihi: {formatDate(payment.paidAt)}</div>
                     <div>İşaretleyen: {payment.markedByDisplayName}</div>
+
+                    {payment.status === "Cancelled" ? (
+                      <>
+                        <div>İptal tarihi: {formatDate(payment.cancelledAtUtc)}</div>
+                        <div>
+                          İptal eden: {payment.cancelledByDisplayName ?? "—"}
+                        </div>
+                        <div>
+                          İptal tipi:{" "}
+                          {getPaymentCancellationTypeLabel(payment.cancellationType)}
+                        </div>
+                        <div>
+                          İptal sebebi:{" "}
+                          {getPaymentCancellationReasonLabel(
+                            payment.cancellationReasonCode
+                          )}
+                        </div>
+                        {payment.cancellationNote ? (
+                          <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px] leading-5 text-slate-600">
+                            {payment.cancellationNote}
+                          </div>
+                        ) : null}
+                      </>
+                    ) : null}
                   </div>
 
                   <div className="mt-3 flex justify-end">

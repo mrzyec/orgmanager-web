@@ -22,8 +22,10 @@ function getStatusLabel(status: MemberPaymentStatus) {
       return "Kısmi";
     case "overdue":
       return "Gecikti";
-    default:
+    case "unpaid":
       return "Bekliyor";
+    default:
+      return "Plan yok";
   }
 }
 
@@ -46,6 +48,12 @@ function getStatusBadgeStyle(status: MemberPaymentStatus) {
         borderColor: "var(--danger-border)",
         backgroundColor: "var(--danger-bg)",
         color: "var(--danger-text)",
+      };
+    case "unpaid":
+      return {
+        borderColor: "var(--border)",
+        backgroundColor: "var(--surface-soft-2)",
+        color: "var(--text-muted)",
       };
     default:
       return {
@@ -93,6 +101,15 @@ function getPeriodStatusStyle(status: string, isOverdue: boolean) {
     backgroundColor: "var(--surface-soft-2)",
     color: "var(--text-muted)",
   };
+}
+
+function memberHasNoPlan(member: MemberRow) {
+  return (
+    member.expectedAmount <= 0 &&
+    member.paidAmount <= 0 &&
+    member.totalOpenDebt <= 0 &&
+    member.currentDuePeriodLabel === "Plan yok"
+  );
 }
 
 type PaymentMembersSectionProps = {
@@ -221,6 +238,7 @@ export default function PaymentMembersSection({
           {filteredMembers.map((member) => {
             const isExpanded = expandedMemberIds.includes(member.memberId);
             const memberPeriods = periodsByMember[member.memberId] ?? [];
+            const hasNoPlan = memberHasNoPlan(member);
 
             return (
               <div
@@ -250,7 +268,7 @@ export default function PaymentMembersSection({
                           className="rounded-full border px-2.5 py-1 text-xs font-medium"
                           style={getStatusBadgeStyle(member.status)}
                         >
-                          {getStatusLabel(member.status)}
+                          {hasNoPlan ? "Plan yok" : getStatusLabel(member.status)}
                         </span>
 
                         {!member.isActive ? (
@@ -282,7 +300,7 @@ export default function PaymentMembersSection({
                           className="rounded-full px-2.5 py-1 shadow-sm"
                           style={{ backgroundColor: "var(--surface-solid)" }}
                         >
-                          Aktif borç dönemi: {member.currentDuePeriodLabel ?? "—"}
+                          Aktif borç dönemi: {hasNoPlan ? "Plan yok" : member.currentDuePeriodLabel ?? "—"}
                         </span>
                         <span
                           className="rounded-full px-2.5 py-1 shadow-sm"
@@ -308,7 +326,7 @@ export default function PaymentMembersSection({
                       />
                       <PaymentCompactSummaryItem
                         label="Durum"
-                        value={getStatusLabel(member.status)}
+                        value={hasNoPlan ? "Plan yok" : getStatusLabel(member.status)}
                       />
                     </div>
                   </div>
@@ -334,7 +352,8 @@ export default function PaymentMembersSection({
                             onChange={(e) =>
                               onYearFilterChange(member.memberId, e.target.value)
                             }
-                            className="w-full rounded-2xl border px-3 py-2 text-sm outline-none"
+                            disabled={hasNoPlan}
+                            className="w-full rounded-2xl border px-3 py-2 text-sm outline-none disabled:cursor-not-allowed disabled:opacity-60"
                             placeholder="2026"
                             style={{
                               borderColor: "var(--border)",
@@ -351,8 +370,14 @@ export default function PaymentMembersSection({
                             onChange={(e) =>
                               onShowOpenOnlyToggle(member.memberId, e.target.checked)
                             }
+                            disabled={hasNoPlan}
                           />
-                          <span className="text-sm" style={{ color: "var(--text)" }}>
+                          <span
+                            className="text-sm"
+                            style={{
+                              color: hasNoPlan ? "var(--text-muted)" : "var(--text)",
+                            }}
+                          >
                             Sadece açık dönemler
                           </span>
                         </label>
@@ -361,7 +386,8 @@ export default function PaymentMembersSection({
                           <button
                             type="button"
                             onClick={() => onRefreshMemberPeriods(member.memberId)}
-                            className="rounded-2xl border px-4 py-2 text-sm font-medium transition hover:brightness-[0.98]"
+                            disabled={hasNoPlan}
+                            className="rounded-2xl border px-4 py-2 text-sm font-medium transition hover:brightness-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
                             style={{
                               borderColor: "var(--border)",
                               backgroundColor: "var(--surface-solid)",
@@ -374,7 +400,18 @@ export default function PaymentMembersSection({
                       </div>
                     </div>
 
-                    {memberPeriods.length === 0 ? (
+                    {hasNoPlan ? (
+                      <div
+                        className="rounded-2xl border border-dashed p-6 text-center text-sm"
+                        style={{
+                          borderColor: "var(--border)",
+                          backgroundColor: "var(--surface-soft)",
+                          color: "var(--text-muted)",
+                        }}
+                      >
+                        Bu üye için gösterilecek dönem bulunmuyor. Önce seçili yıl ve aidat tipi için plan oluşturmalısın.
+                      </div>
+                    ) : memberPeriods.length === 0 ? (
                       <div
                         className="rounded-2xl border border-dashed p-6 text-center text-sm"
                         style={{

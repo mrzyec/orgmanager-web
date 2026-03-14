@@ -7,7 +7,10 @@ import PaymentMembersSection from "./_payments-components/payment-members-sectio
 import PaymentSidePanels from "./_payments-components/payment-side-panels";
 import PaymentStatCard from "./_payments-components/payment-stat-card";
 import PaymentSettingsPanel from "./_payments-components/payment-settings-panel";
-import { formatCurrency } from "./_payments-lib/payment-formatters";
+import {
+  formatCurrency,
+  getPaymentCancellationReasonOptions,
+} from "./_payments-lib/payment-formatters";
 import { useOrganizationPaymentsPage } from "./_payments-hooks/use-organization-payments-page";
 
 export default function OrganizationPaymentsPageClient({
@@ -21,6 +24,13 @@ export default function OrganizationPaymentsPageClient({
     organizationId,
     showToast,
   });
+
+  const cancellationReasonOptions = getPaymentCancellationReasonOptions();
+
+  const isPaymentCancelConfirmDisabled =
+    !vm.paymentCancelReasonCode ||
+    (vm.paymentCancelReasonCode === "Other" &&
+      vm.paymentCancelNote.trim().length === 0);
 
   return (
     <>
@@ -48,25 +58,91 @@ export default function OrganizationPaymentsPageClient({
 
       <ActionConfirmModal
         open={vm.pendingPlanDelete != null}
-        title="Aidat Planı Silme Onayı"
+        title="Aidat Planı İşlemi"
         description={
           vm.pendingPlanDelete
             ? `${vm.pendingPlanDelete.year} ${
                 vm.pendingPlanDelete.period === "Yearly" ? "yıllık" : "aylık"
-              } aidat planı silinecek.`
+              } aidat planı için işlem seçiyorsun.`
             : ""
         }
-        warningText="Bu işlem planı ve bu plana bağlı borç üretimini etkiler. Bu yıl için ödeme alınmış planlar zaten silinemez."
-        confirmText="Planı Sil"
+        warningText={
+          vm.planDeleteMode === "rollback"
+            ? "Toplu geri al ve sil seçeneği bu plana bağlı tamamlanmış ödeme kayıtlarını iptal eder, açıklama ile birlikte geçmişe işler ve ardından planı siler."
+            : "Normal silme yalnızca tamamlanmış ödeme kaydı yoksa çalışır. Tamamlanmış ödeme varsa toplu geri al ve sil kullanmalısın."
+        }
+        confirmText={
+          vm.planDeleteMode === "rollback" ? "Toplu Geri Al ve Sil" : "Planı Sil"
+        }
         cancelText="Vazgeç"
         confirmTone="danger"
+        confirmDisabled={
+          vm.planDeleteMode === "rollback" && vm.planDeleteNote.trim().length === 0
+        }
         isSubmitting={
           vm.pendingPlanDelete != null &&
           vm.deletingPlanYear === vm.pendingPlanDelete.year
         }
         onCancel={() => vm.setPendingPlanDelete(null)}
         onConfirm={vm.confirmDeletePlan}
-      />
+      >
+        <div>
+          <label className="mb-1 block text-sm font-medium text-slate-700">
+            İşlem türü
+          </label>
+          <select
+            value={vm.planDeleteMode}
+            onChange={(e) =>
+              vm.setPlanDeleteMode(e.target.value as "delete" | "rollback")
+            }
+            className="w-full rounded-2xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none"
+          >
+            <option value="delete">Sadece planı sil</option>
+            <option value="rollback">Toplu geri al ve sil</option>
+          </select>
+        </div>
+
+        {vm.planDeleteMode === "rollback" ? (
+          <>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">
+                Toplu iptal sebebi
+              </label>
+              <select
+                value={vm.planDeleteReasonCode}
+                onChange={(e) =>
+                  vm.setPlanDeleteReasonCode(
+                    e.target.value as typeof vm.planDeleteReasonCode
+                  )
+                }
+                className="w-full rounded-2xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none"
+              >
+                {cancellationReasonOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">
+                Açıklama
+              </label>
+              <textarea
+                value={vm.planDeleteNote}
+                onChange={(e) => vm.setPlanDeleteNote(e.target.value)}
+                rows={4}
+                placeholder="Örn: 2026 planı hatalı oluşturulduğu için tüm tahsilatlar toplu geri alınarak plan siliniyor."
+                className="w-full rounded-2xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none"
+              />
+              <div className="mt-1 text-xs text-slate-500">
+                Toplu geri al ve sil işleminde açıklama zorunludur.
+              </div>
+            </div>
+          </>
+        ) : null}
+      </ActionConfirmModal>
 
       <ActionConfirmModal
         open={vm.pendingPaymentCancel != null}
@@ -83,10 +159,49 @@ export default function OrganizationPaymentsPageClient({
         confirmText="Ödemeyi İptal Et"
         cancelText="Vazgeç"
         confirmTone="danger"
+        confirmDisabled={isPaymentCancelConfirmDisabled}
         isSubmitting={vm.cancellingPaymentId != null}
         onCancel={() => vm.setPendingPaymentCancel(null)}
         onConfirm={vm.confirmCancelPayment}
-      />
+      >
+        <div>
+          <label className="mb-1 block text-sm font-medium text-slate-700">
+            İptal sebebi
+          </label>
+          <select
+            value={vm.paymentCancelReasonCode}
+            onChange={(e) =>
+              vm.setPaymentCancelReasonCode(
+                e.target.value as typeof vm.paymentCancelReasonCode
+              )
+            }
+            className="w-full rounded-2xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none"
+          >
+            <option value="">Sebep seç</option>
+            {cancellationReasonOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="mb-1 block text-sm font-medium text-slate-700">
+            Açıklama
+          </label>
+          <textarea
+            value={vm.paymentCancelNote}
+            onChange={(e) => vm.setPaymentCancelNote(e.target.value)}
+            rows={3}
+            placeholder="İsteğe bağlı açıklama"
+            className="w-full rounded-2xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none"
+          />
+          <div className="mt-1 text-xs text-slate-500">
+            Sebep seçimi zorunludur. “Diğer” seçilirse açıklama da zorunlu olur.
+          </div>
+        </div>
+      </ActionConfirmModal>
 
       <div
         className="space-y-6 rounded-[32px] p-3"

@@ -1,5 +1,5 @@
 export type PaymentCollectionType = "monthly" | "yearly" | "disabled";
-export type MemberPaymentStatus = "paid" | "partial" | "unpaid" | "overdue";
+export type MemberPaymentStatus = "paid" | "partial" | "unpaid" | "overdue" | "no-plan";
 export type StatusFilter = "all" | "paid" | "partial" | "unpaid" | "overdue";
 export type RecentPaymentStatusFilter = "all" | "completed" | "cancelled";
 
@@ -73,6 +73,11 @@ export type RecentPaymentItem = {
   markedByDisplayName: string;
   methodLabel: string;
   status: "Completed" | "Cancelled" | string;
+  cancelledAtUtc?: string | null;
+  cancelledByDisplayName?: string | null;
+  cancellationType?: string | null;
+  cancellationReasonCode?: string | null;
+  cancellationNote?: string | null;
 };
 
 export type PendingPaymentConfirm = {
@@ -88,6 +93,8 @@ export type PendingPlanDeleteConfirm = {
   year: number;
   period: "Monthly" | "Yearly";
 };
+
+export type PlanDeleteMode = "delete" | "rollback";
 
 export type PendingPaymentCancelConfirm = {
   paymentId?: string | null;

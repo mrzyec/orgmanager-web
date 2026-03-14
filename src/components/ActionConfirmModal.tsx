@@ -1,5 +1,7 @@
 "use client";
 
+import type { ReactNode } from "react";
+
 type ActionConfirmModalProps = {
   open: boolean;
   title: string;
@@ -9,8 +11,10 @@ type ActionConfirmModalProps = {
   cancelText?: string;
   confirmTone?: "default" | "danger";
   isSubmitting?: boolean;
+  confirmDisabled?: boolean;
   onCancel: () => void;
   onConfirm: () => void;
+  children?: ReactNode;
 };
 
 export default function ActionConfirmModal({
@@ -22,8 +26,10 @@ export default function ActionConfirmModal({
   cancelText = "Vazgeç",
   confirmTone = "default",
   isSubmitting = false,
+  confirmDisabled = false,
   onCancel,
   onConfirm,
+  children,
 }: ActionConfirmModalProps) {
   if (!open) return null;
 
@@ -46,6 +52,8 @@ export default function ActionConfirmModal({
           </div>
         ) : null}
 
+        {children ? <div className="mt-4 space-y-4">{children}</div> : null}
+
         <div className="mt-5 flex justify-end gap-3">
           <button
             type="button"
@@ -59,7 +67,7 @@ export default function ActionConfirmModal({
           <button
             type="button"
             onClick={onConfirm}
-            disabled={isSubmitting}
+            disabled={isSubmitting || confirmDisabled}
             className={confirmButtonClass}
           >
             {isSubmitting ? "İşleniyor..." : confirmText}

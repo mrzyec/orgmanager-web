@@ -191,7 +191,7 @@ export default function PaymentSettingsPanel({
                   startDay: e.target.value,
                 })
               }
-              disabled={controlsDisabled}
+              disabled={controlsDisabled || settingsForm.period === "Yearly"}
               className="w-full rounded-xl border px-3 py-2 text-sm outline-none disabled:opacity-60"
               style={{
                 borderColor: "var(--border)",
@@ -214,7 +214,7 @@ export default function PaymentSettingsPanel({
                   startMonth: e.target.value,
                 })
               }
-              disabled={controlsDisabled}
+              disabled={controlsDisabled || settingsForm.period === "Yearly"}
               className="w-full rounded-xl border px-3 py-2 text-sm outline-none disabled:opacity-60"
               style={{
                 borderColor: "var(--border)",
@@ -277,7 +277,8 @@ export default function PaymentSettingsPanel({
               {planDescription}
             </p>
             <p className="text-xs" style={{ color: "var(--warning-text)" }}>
-              Not: Bu yıl için ödeme alınmışsa plan silinemez.
+              Not: Tamamlanmış ödeme geçmişi olan planlar normal silme ile kaldırılamaz.
+              Böyle durumlarda toplu geri al ve sil akışı kullanılmalıdır.
             </p>
           </div>
         </div>
@@ -345,7 +346,10 @@ export default function PaymentSettingsPanel({
           </label>
         </div>
 
-        <div className="mt-3 flex flex-wrap items-center gap-3 text-sm" style={{ color: "var(--text-muted)" }}>
+        <div
+          className="mt-3 flex flex-wrap items-center gap-3 text-sm"
+          style={{ color: "var(--text-muted)" }}
+        >
           <span
             className="rounded-full px-3 py-1.5 shadow-sm"
             style={{ backgroundColor: "var(--surface-solid)" }}
@@ -363,7 +367,10 @@ export default function PaymentSettingsPanel({
         <div className="mt-4 overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead>
-              <tr className="border-b text-left" style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}>
+              <tr
+                className="border-b text-left"
+                style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}
+              >
                 <th className="px-3 py-3">Yıl</th>
                 <th className="px-3 py-3">Tip</th>
                 <th className="px-3 py-3">Tutar</th>
@@ -376,7 +383,11 @@ export default function PaymentSettingsPanel({
             <tbody>
               {compatiblePlans.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-3 py-6 text-center" style={{ color: "var(--text-muted)" }}>
+                  <td
+                    colSpan={7}
+                    className="px-3 py-6 text-center"
+                    style={{ color: "var(--text-muted)" }}
+                  >
                     Bu aidat tipine uygun plan henüz tanımlanmadı.
                   </td>
                 </tr>
@@ -389,7 +400,9 @@ export default function PaymentSettingsPanel({
                       borderColor: "var(--border)",
                       color: "var(--text)",
                       backgroundColor:
-                        selectedPlanYear === plan.year ? "var(--surface-soft)" : "transparent",
+                        selectedPlanYear === plan.year
+                          ? "var(--surface-soft)"
+                          : "transparent",
                     }}
                   >
                     <td className="px-3 py-3 font-medium">{plan.year}</td>
@@ -416,7 +429,7 @@ export default function PaymentSettingsPanel({
                           color: "var(--text)",
                         }}
                       >
-                        {deletingPlanYear === plan.year ? "Siliniyor..." : "Planı sil"}
+                        {deletingPlanYear === plan.year ? "İşleniyor..." : "Plan işlemleri"}
                       </button>
                     </td>
                   </tr>
@@ -498,7 +511,7 @@ export default function PaymentSettingsPanel({
                       effectiveDay: e.target.value,
                     })
                   }
-                  disabled={controlsDisabled}
+                  disabled={controlsDisabled || settingsForm.period === "Monthly"}
                   className="w-full rounded-xl border px-3 py-2 text-sm outline-none disabled:opacity-60"
                   style={{
                     borderColor: "var(--border)",

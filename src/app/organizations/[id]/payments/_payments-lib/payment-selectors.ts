@@ -24,6 +24,10 @@ export function buildRecentPaymentMetrics(recentPayments: RecentPaymentItem[]) {
   >();
 
   for (const payment of recentPayments) {
+    if (payment.status === "Cancelled") {
+      continue;
+    }
+
     const current = map.get(payment.memberEmail) ?? {
       count: 0,
       lastPaidAt: null,
@@ -65,16 +69,27 @@ export function buildMembers(params: {
   return memberStatuses.map((item) => {
     const paidAmount = item.currentPeriodPaidAmount ?? 0;
     const remainingAmount = Math.max(activePlanAmount - paidAmount, 0);
-    const totalOpenDebt = item.totalOutstandingAmount ?? remainingAmount;
+    const totalOpenDebt = activePlanAmount <= 0
+      ? 0
+      : item.totalOutstandingAmount ?? remainingAmount;
+
     const paymentMetric = recentPaymentMetrics.get(item.email);
 
     let status: MemberPaymentStatus;
 
-    if (item.isOverdue && paidAmount > 0) status = "partial";
-    else if (item.isOverdue) status = "overdue";
-    else if (paidAmount >= activePlanAmount && activePlanAmount > 0) status = "paid";
-    else if (paidAmount > 0) status = "partial";
-    else status = "unpaid";
+    if (activePlanAmount <= 0) {
+      status = "no-plan";
+    } else if (item.isOverdue && paidAmount > 0) {
+      status = "partial";
+    } else if (item.isOverdue) {
+      status = "overdue";
+    } else if (paidAmount >= activePlanAmount && activePlanAmount > 0) {
+      status = "paid";
+    } else if (paidAmount > 0) {
+      status = "partial";
+    } else {
+      status = "unpaid";
+    }
 
     return {
       memberId: item.organizationMemberId,
@@ -88,14 +103,19 @@ export function buildMembers(params: {
       remainingAmount,
       totalOpenDebt,
       lastPaymentDate: paymentMetric?.lastPaidAt ?? item.lastPaidAtUtc ?? null,
-      currentDueDate: item.nextDueDateUtc ?? null,
+      currentDueDate: activePlanAmount <= 0 ? null : item.nextDueDateUtc ?? null,
       currentDuePeriodLabel:
-        settingsPeriod === "Yearly"
+        activePlanAmount <= 0
+          ? null
+          : settingsPeriod === "Yearly"
           ? item.nextDueDateUtc
             ? formatYearOnly(item.nextDueDateUtc)
             : "—"
           : formatMonthYear(item.nextDueDateUtc ?? null),
-      overduePeriods: item.overduePeriodCount ?? (item.isOverdue ? 1 : 0),
+      overduePeriods:
+        activePlanAmount <= 0
+          ? 0
+          : item.overduePeriodCount ?? (item.isOverdue ? 1 : 0),
       totalPaymentCount: paymentMetric?.count ?? 0,
     };
   });
@@ -120,7 +140,7 @@ export function filterMembers(params: {
       statusFilter === "all"
         ? true
         : statusFilter === "paid"
-        ? member.paidAmount > 0 || member.totalPaymentCount > 0
+        ? member.status === "paid"
         : statusFilter === "partial"
         ? member.status === "partial"
         : statusFilter === "unpaid"
@@ -155,9 +175,7 @@ export function calculateSummaryStats(members: MemberRow[]) {
 
   const overdueCount = members.filter((x) => x.status === "overdue").length;
   const partialCount = members.filter((x) => x.status === "partial").length;
-  const paidCount = members.filter(
-    (x) => x.status === "paid" || x.totalPaymentCount > 0
-  ).length;
+  const paidCount = members.filter((x) => x.status === "paid").length;
   const unpaidCount = members.filter((x) => x.status === "unpaid").length;
   const neverPaidCount = members.filter((x) => x.totalPaymentCount === 0).length;
 
