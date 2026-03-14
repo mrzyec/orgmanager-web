@@ -225,7 +225,7 @@ export default function OrganizationOverviewClient({ id }: { id: string }) {
           />
         </div>
 
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
           <div className="rounded-[28px] border border-slate-200 bg-gradient-to-r from-slate-50 via-white to-slate-50 p-5 shadow-sm">
             <div className="mb-4">
               <div className="text-sm text-slate-500">

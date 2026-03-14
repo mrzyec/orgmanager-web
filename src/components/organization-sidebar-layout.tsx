@@ -24,7 +24,7 @@ export default function OrganizationSidebarLayout({
   children,
 }: OrganizationSidebarLayoutProps) {
   return (
-    <div className="grid gap-6 xl:grid-cols-[250px_minmax(0,1fr)]">
+    <div className="grid grid-cols-1 gap-6 xl:grid-cols-[280px_minmax(0,1fr)]">
       <aside className="xl:sticky xl:top-6 xl:self-start">
         <div
           className="rounded-[28px] border p-5 shadow-sm"
@@ -34,12 +34,15 @@ export default function OrganizationSidebarLayout({
           }}
         >
           <div className="mb-5">
-            <div className="text-sm font-medium" style={{ color: "var(--text-muted)" }}>
+            <div
+              className="text-sm font-medium"
+              style={{ color: "var(--text-muted)" }}
+            >
               Organizasyon menüsü
             </div>
 
             <div
-              className="mt-1 text-xl font-semibold tracking-tight"
+              className="mt-1 text-[22px] font-semibold tracking-tight"
               style={{ color: "var(--text)" }}
             >
               {title}
@@ -47,7 +50,7 @@ export default function OrganizationSidebarLayout({
 
             {subtitle ? (
               <p
-                className="mt-2 text-sm leading-6"
+                className="mt-2 text-sm leading-8"
                 style={{ color: "var(--text-muted)" }}
               >
                 {subtitle}
@@ -61,7 +64,7 @@ export default function OrganizationSidebarLayout({
                 key={item.key}
                 href={item.href}
                 prefetch
-                className={`block rounded-2xl border px-4 py-3 transition-all duration-200 ${
+                className={`block rounded-2xl border px-4 py-4 transition-all duration-200 ${
                   item.isActive
                     ? "shadow-md"
                     : "hover:-translate-y-0.5 hover:shadow-sm"
@@ -84,7 +87,7 @@ export default function OrganizationSidebarLayout({
 
                 {item.description ? (
                   <div
-                    className="mt-1 text-xs leading-5"
+                    className="mt-1 text-xs leading-6"
                     style={{
                       color: item.isActive
                         ? "var(--text-on-dark-muted)"
@@ -99,7 +102,7 @@ export default function OrganizationSidebarLayout({
           </div>
 
           <div
-            className="mt-5 rounded-2xl border border-dashed px-4 py-3"
+            className="mt-5 rounded-2xl border border-dashed px-4 py-4"
             style={{
               borderColor: "var(--border)",
               backgroundColor: "var(--surface-soft)",
@@ -113,7 +116,7 @@ export default function OrganizationSidebarLayout({
             </div>
 
             <div
-              className="mt-1 text-sm leading-6"
+              className="mt-1 text-sm leading-7"
               style={{ color: "var(--text-muted)" }}
             >
               Bu menü yapısını ileride ek modüllerle genişletebiliriz.

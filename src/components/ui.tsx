@@ -135,8 +135,11 @@ export function AppPage({
   children: ReactNode;
 }) {
   return (
-    <main className="min-h-screen px-4 py-8" style={{ background: "var(--app-bg)" }}>
-      <div className="mx-auto max-w-5xl space-y-6">{children}</div>
+    <main
+      className="min-h-screen w-full px-4 py-6 lg:px-6 xl:px-8"
+      style={{ background: "var(--app-bg)" }}
+    >
+      <div className="w-full space-y-6">{children}</div>
     </main>
   );
 }

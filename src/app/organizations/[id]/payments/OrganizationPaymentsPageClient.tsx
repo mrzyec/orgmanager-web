@@ -1,7 +1,11 @@
 "use client";
 
+import { useMemo } from "react";
 import { useToast } from "@/components/ToastProvider";
 import ActionConfirmModal from "@/components/ActionConfirmModal";
+import { AppCard, AppLinkButton, AppPage } from "@/components/ui";
+import { AppNavbar } from "@/components/app-navbar";
+import { useOrganizationPageData } from "@/hooks/use-organization-page-data";
 import PaymentDashboardHeroCard from "./_payments-components/payment-dashboard-hero-card";
 import PaymentMembersSection from "./_payments-components/payment-members-section";
 import PaymentSidePanels from "./_payments-components/payment-side-panels";
@@ -20,6 +24,8 @@ export default function OrganizationPaymentsPageClient({
 }) {
   const { showToast } = useToast();
 
+  const { org, me } = useOrganizationPageData(organizationId);
+
   const vm = useOrganizationPaymentsPage({
     organizationId,
     showToast,
@@ -32,8 +38,64 @@ export default function OrganizationPaymentsPageClient({
     (vm.paymentCancelReasonCode === "Other" &&
       vm.paymentCancelNote.trim().length === 0);
 
+  const stats = useMemo(
+    () => [
+      {
+        title: "Aidat Sistemi",
+        value: vm.getCollectionTypeLabel(vm.collectionType),
+        subtitle: `Aktif dönem: ${vm.activePeriodLabel}`,
+        accentTone: "primary" as const,
+        badge: vm.isSettingsPanelOpen
+          ? "Ayarlar açık"
+          : vm.settings?.isEnabled
+          ? "Açık"
+          : "Kapalı",
+        onClick: () => vm.setIsSettingsPanelOpen((prev) => !prev),
+        isActive: vm.isSettingsPanelOpen,
+      },
+      {
+        title: "Ödeme Beklenen Üye",
+        value: String(vm.members.length),
+        subtitle: `Hiç ödeme yapmayan: ${vm.neverPaidCount}`,
+        accentTone: "info" as const,
+      },
+      {
+        title: "Tam Ödeyen",
+        value: String(vm.paidCount),
+        subtitle: `Tahsilat oranı: %${vm.collectionRate.toFixed(0)}`,
+        accentTone: "success" as const,
+      },
+      {
+        title: "Kısmi Ödeyen",
+        value: String(vm.partialCount),
+        subtitle: "Bu döneme ait eksik ödeme var",
+        accentTone: "warning" as const,
+      },
+      {
+        title: "Geciken Üye",
+        value: String(vm.overdueCount),
+        subtitle: "Açık geçmiş dönem borcu bulunuyor",
+        accentTone: "danger" as const,
+      },
+      {
+        title: "Kalan Alacak",
+        value: formatCurrency(vm.totalRemainingAmount, vm.activeCurrency),
+        subtitle: `Bekleyen: ${String(vm.unpaidCount)}`,
+        accentTone: "muted" as const,
+      },
+    ],
+    [vm]
+  );
+
   return (
-    <>
+    <AppPage>
+      <AppNavbar
+        email={me?.email}
+        title={org?.name ?? "Aidat ve ödemeler"}
+        subtitle="Aidat planlarını, üye ödeme durumlarını ve son tahsilat hareketlerini buradan yönetebilirsin."
+        actions={<AppLinkButton href={`/organizations/${organizationId}`}>Organizasyon dashboardına dön</AppLinkButton>}
+      />
+
       <ActionConfirmModal
         open={vm.pendingPayment != null}
         title="Ödeme Onayı"
@@ -203,10 +265,7 @@ export default function OrganizationPaymentsPageClient({
         </div>
       </ActionConfirmModal>
 
-      <div
-        className="space-y-6 rounded-[32px] p-3"
-        style={{ background: "var(--app-bg)" }}
-      >
+      <div className="space-y-6">
         <PaymentDashboardHeroCard
           collectionType={vm.collectionType}
           activePeriodLabel={vm.activePeriodLabel}
@@ -229,57 +288,19 @@ export default function OrganizationPaymentsPageClient({
           </div>
         ) : null}
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-6">
-          <PaymentStatCard
-            title="Aidat Sistemi"
-            value={vm.getCollectionTypeLabel(vm.collectionType)}
-            subtitle={`Aktif dönem: ${vm.activePeriodLabel}`}
-            accentTone="primary"
-            onClick={() => vm.setIsSettingsPanelOpen((prev) => !prev)}
-            isActive={vm.isSettingsPanelOpen}
-            badge={
-              vm.isSettingsPanelOpen
-                ? "Ayarlar açık"
-                : vm.settings?.isEnabled
-                ? "Açık"
-                : "Kapalı"
-            }
-          />
-
-          <PaymentStatCard
-            title="Ödeme Beklenen Üye"
-            value={String(vm.members.length)}
-            subtitle={`Hiç ödeme yapmayan: ${vm.neverPaidCount}`}
-            accentTone="info"
-          />
-
-          <PaymentStatCard
-            title="Tam Ödeyen"
-            value={String(vm.paidCount)}
-            subtitle={`Tahsilat oranı: %${vm.collectionRate.toFixed(0)}`}
-            accentTone="success"
-          />
-
-          <PaymentStatCard
-            title="Kısmi Ödeyen"
-            value={String(vm.partialCount)}
-            subtitle="Bu döneme ait eksik ödeme var"
-            accentTone="warning"
-          />
-
-          <PaymentStatCard
-            title="Geciken Üye"
-            value={String(vm.overdueCount)}
-            subtitle="Açık geçmiş dönem borcu bulunuyor"
-            accentTone="danger"
-          />
-
-          <PaymentStatCard
-            title="Kalan Alacak"
-            value={formatCurrency(vm.totalRemainingAmount, vm.activeCurrency)}
-            subtitle={`Bekleyen: ${String(vm.unpaidCount)}`}
-            accentTone="muted"
-          />
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+          {stats.map((stat) => (
+            <PaymentStatCard
+              key={stat.title}
+              title={stat.title}
+              value={stat.value}
+              subtitle={stat.subtitle}
+              accentTone={stat.accentTone}
+              onClick={stat.onClick}
+              isActive={stat.isActive}
+              badge={stat.badge}
+            />
+          ))}
         </div>
 
         <PaymentSettingsPanel
@@ -305,63 +326,67 @@ export default function OrganizationPaymentsPageClient({
           onDeletePlan={vm.requestDeletePlan}
         />
 
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-          <div className="space-y-6 xl:col-span-2">
-            <PaymentMembersSection
-              isLoading={vm.isLoading}
-              filteredMembers={vm.filteredMembers}
-              search={vm.search}
-              statusFilter={vm.statusFilter}
-              activeCurrency={vm.activeCurrency}
-              expandedMemberIds={vm.expandedMemberIds}
-              periodsByMember={vm.periodsByMember}
-              periodYearFilterByMember={vm.periodYearFilterByMember}
-              showOpenOnlyByMember={vm.showOpenOnlyByMember}
-              paymentAmountByPeriod={vm.paymentAmountByPeriod}
-              payingPeriodId={vm.payingPeriodId}
-              cancellingPaymentId={vm.cancellingPaymentId}
-              onSearchChange={vm.setSearch}
-              onStatusFilterChange={vm.setStatusFilter}
-              onToggleMember={vm.toggleMember}
-              onYearFilterChange={vm.handleYearFilterChange}
-              onShowOpenOnlyToggle={vm.handleShowOpenOnlyToggle}
-              onRefreshMemberPeriods={vm.handleRefreshMemberPeriods}
-              onPaymentAmountChange={(periodId, value) =>
-                vm.setPaymentAmountByPeriod((prev) => ({
-                  ...prev,
-                  [periodId]: value,
-                }))
-              }
-              onOpenPaymentConfirm={vm.openPaymentConfirm}
-              onRequestCancelPaymentForPeriod={vm.requestCancelPaymentForPeriod}
-              getCancelablePaymentForPeriod={vm.getCancelablePaymentForPeriod}
-              getRevisionNotice={vm.getRevisionNotice}
-            />
+        <div className="grid grid-cols-1 gap-6 2xl:grid-cols-[minmax(0,1.8fr)_minmax(340px,0.9fr)]">
+          <div className="min-w-0">
+            <AppCard>
+              <PaymentMembersSection
+                isLoading={vm.isLoading}
+                filteredMembers={vm.filteredMembers}
+                search={vm.search}
+                statusFilter={vm.statusFilter}
+                activeCurrency={vm.activeCurrency}
+                expandedMemberIds={vm.expandedMemberIds}
+                periodsByMember={vm.periodsByMember}
+                periodYearFilterByMember={vm.periodYearFilterByMember}
+                showOpenOnlyByMember={vm.showOpenOnlyByMember}
+                paymentAmountByPeriod={vm.paymentAmountByPeriod}
+                payingPeriodId={vm.payingPeriodId}
+                cancellingPaymentId={vm.cancellingPaymentId}
+                onSearchChange={vm.setSearch}
+                onStatusFilterChange={vm.setStatusFilter}
+                onToggleMember={vm.toggleMember}
+                onYearFilterChange={vm.handleYearFilterChange}
+                onShowOpenOnlyToggle={vm.handleShowOpenOnlyToggle}
+                onRefreshMemberPeriods={vm.handleRefreshMemberPeriods}
+                onPaymentAmountChange={(periodId, value) =>
+                  vm.setPaymentAmountByPeriod((prev) => ({
+                    ...prev,
+                    [periodId]: value,
+                  }))
+                }
+                onOpenPaymentConfirm={vm.openPaymentConfirm}
+                onRequestCancelPaymentForPeriod={vm.requestCancelPaymentForPeriod}
+                getCancelablePaymentForPeriod={vm.getCancelablePaymentForPeriod}
+                getRevisionNotice={vm.getRevisionNotice}
+              />
+            </AppCard>
           </div>
 
-          <PaymentSidePanels
-            filteredRecentPayments={vm.filteredRecentPayments}
-            filteredTopDebtors={vm.filteredTopDebtors}
-            filteredRegularPayers={vm.filteredRegularPayers}
-            filteredNeverPaidMembers={vm.filteredNeverPaidMembers}
-            recentSearch={vm.recentSearch}
-            recentPaymentStatusFilter={vm.recentPaymentStatusFilter}
-            topDebtorsSearch={vm.topDebtorsSearch}
-            regularPayersSearch={vm.regularPayersSearch}
-            neverPaidSearch={vm.neverPaidSearch}
-            activeCurrency={vm.activeCurrency}
-            cancellingPaymentId={vm.cancellingPaymentId}
-            onRecentSearchChange={vm.setRecentSearch}
-            onRecentPaymentStatusFilterChange={vm.setRecentPaymentStatusFilter}
-            onTopDebtorsSearchChange={vm.setTopDebtorsSearch}
-            onRegularPayersSearchChange={vm.setRegularPayersSearch}
-            onNeverPaidSearchChange={vm.setNeverPaidSearch}
-            onRequestCancelPayment={vm.requestCancelPayment}
-          />
+          <div className="min-w-0">
+            <PaymentSidePanels
+              filteredRecentPayments={vm.filteredRecentPayments}
+              filteredTopDebtors={vm.filteredTopDebtors}
+              filteredRegularPayers={vm.filteredRegularPayers}
+              filteredNeverPaidMembers={vm.filteredNeverPaidMembers}
+              recentSearch={vm.recentSearch}
+              recentPaymentStatusFilter={vm.recentPaymentStatusFilter}
+              topDebtorsSearch={vm.topDebtorsSearch}
+              regularPayersSearch={vm.regularPayersSearch}
+              neverPaidSearch={vm.neverPaidSearch}
+              activeCurrency={vm.activeCurrency}
+              cancellingPaymentId={vm.cancellingPaymentId}
+              onRecentSearchChange={vm.setRecentSearch}
+              onRecentPaymentStatusFilterChange={vm.setRecentPaymentStatusFilter}
+              onTopDebtorsSearchChange={vm.setTopDebtorsSearch}
+              onRegularPayersSearchChange={vm.setRegularPayersSearch}
+              onNeverPaidSearchChange={vm.setNeverPaidSearch}
+              onRequestCancelPayment={vm.requestCancelPayment}
+            />
+          </div>
         </div>
 
         <div className="hidden">{organizationId}</div>
       </div>
-    </>
+    </AppPage>
   );
 }
